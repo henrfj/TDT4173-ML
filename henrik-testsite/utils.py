@@ -9,6 +9,20 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 
+# Train
+class PrintDot(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs):
+        if epoch % 100 == 0: print('')
+        print('.', end='')
+
+def plot_history(hist):
+    plt.figure()
+    plt.xlabel('Epoch')
+    plt.ylabel('MSLE')
+    plt.plot(hist['epoch'], hist['msle'], label='Train Error')
+    plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
+    plt.legend()
+
 def preProcessData(metaData : dict, data : pd.DataFrame):
     for index, row in data.iterrows():
         pass
