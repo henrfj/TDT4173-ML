@@ -1,10 +1,4 @@
-import ipywidgets
-from IPython.display import display
-from threading import Thread
 import pandas as pd
-import time
-import random
-import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from scipy import stats
@@ -25,9 +19,11 @@ def plot_history(hist):
     plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
     plt.legend()
 
-def preProcess_numericalData(features, train, test, outliers_value=7):
-    # Outlayer removal
-    no_outlayers = train[(np.abs(stats.zscore(train[["area_total", "price"]])) < outliers_value).all(axis=1)] 
+def preProcess_numericalData(features, train, test, outliers_value=7, drop_nan=False):
+    # Removing proce outlayers
+    no_outlayers = train[(np.abs(stats.zscore(train[["price"]])) < outliers_value).all(axis=1)] 
+    if drop_nan:
+        no_outlayers = no_outlayers.dropna() #NB!
 
     # Labels and targets
     labels1 = no_outlayers[features]
