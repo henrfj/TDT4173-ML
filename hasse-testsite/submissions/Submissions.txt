@@ -36,3 +36,64 @@ features:  ['area_total','area_kitchen','floor','bathrooms_private',
 
 
 ****************************************************************************************************
+
+CB1.csv
+
+score on public leaderboard: 0.23450
+notebook: sequential_filtered_data
+model: 
+catboost = CatBoostRegressor(
+    n_estimators=500,
+    learning_rate=0.1,
+    thread_count=-1,
+    depth=7,
+    silent=True,
+    random_seed=42,
+    bagging_temperature=0.2
+#     od_type="Iter"
+)
+selected_features = ['area_total','area_kitchen','floor','bathrooms_private','longitude',
+		'latitude','district','constructed','stories']
+
+****************************************************************************************************
+CB2.csv
+
+score on public leaderboard: 0.34118
+notebook: sequential_filtered_data
+model: 
+catboost = CatBoostRegressor(
+    n_estimators=500,
+    learning_rate=0.1,
+    thread_count=-1,
+    depth=7,
+    silent=True,
+    random_seed=42,
+    bagging_temperature=0.2
+#     od_type="Iter"
+)
+features = ['apartment_id', 'seller', 'area_total', 'area_kitchen', 'area_living', 'floor', 'rooms', 
+		'layout', 'ceiling', 'bathrooms_shared', 'bathrooms_private', 'windows_court', 'windows_street', 
+		'balconies', 'loggias', 'condition', 'phones', 'building_id', 'new', 'district', 'street', 
+		'address', 'constructed', 'material', 'stories', 'elevator_without', 'elevator_passenger', 
+		'elevator_service', 'parking', 'garbage_chute', 'heating', 'r', 'theta']
+
+****************************************************************************************************
+CB3.csv
+
+score on public leaderboard: 0.26051
+notebook: sequential_filtered_data
+model: 
+catboost = CatBoostRegressor(
+    n_estimators=500,
+    learning_rate=0.1,
+    thread_count=-1,
+    depth=7,
+    silent=True,
+    random_seed=42,
+    bagging_temperature=0.2
+#     od_type="Iter"
+)
+features = ['area_total', 'area_kitchen', 'area_living', 'floor', 'rooms', 'ceiling', 'bathrooms_private', 
+		'condition', 'building_id', 'district', 'street', 'address', 'constructed', 'stories', 
+		'elevator_without', 'elevator_service', 'parking', 'garbage_chute', 'heating', 'r', 'theta']
+​
