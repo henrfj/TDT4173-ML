@@ -3,8 +3,13 @@ import numpy as np
 
 from sklearn.preprocessing import LabelEncoder
 from tabulate import tabulate
+from sklearn.model_selection import train_test_split
 
 from scipy import stats
+
+import seaborn as sns
+import matplotlib.pylab as plt
+plt.style.use('ggplot')
 
 import math
 
@@ -107,7 +112,6 @@ def handle_NaN(data, test = False):
                     'heating']
     if not test:
         all_features.append('price')
-        outlier_rejection(data, 7)
 
     categorical_to_numerical(data, ['street','address'])
     
@@ -131,19 +135,33 @@ def add_features(data, radius=False, penthouse=False):
         data = penthouse_features(data)
     return data
 
-def load_and_handle(apartment, building, test = False):
+def load_and_handle(apartment, building, test = False, split_before_handle=False):
     data = pd.merge(apartment, building, left_on='building_id', right_on='id')
     data.rename(columns={'id_x' : 'apartment_id'}, inplace=True)
     data.drop('id_y', axis=1, inplace=True)
+    if not test:
+        outlier_rejection(data, 7)
+    if split_before_handle:
+        X = data.drop(['price'], axis=1)
+        y = data['price']
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        handle_NaN(X_train, test=True)
+        handle_NaN(X_test, test=True)
+        X_train = add_features(X_train, radius=True, penthouse=True)
+        X_test = add_features(X_test, radius=True, penthouse=True)
+        return X_train, X_test, y_train, y_test
     handle_NaN(data, test)
     data = add_features(data, radius=True, penthouse=True)
     return data
 
 
-def load_and_handle_train():
+def load_and_handle_train(split_before_handle=False):
     train_apartment = pd.read_csv('../data/apartments_train.csv')
     train_building = pd.read_csv('../data/buildings_train.csv')
-    data = load_and_handle(train_apartment, train_building)
+    if split_before_handle:
+        return load_and_handle(train_apartment, train_building, test = False, split_before_handle = True)
+    data = load_and_handle(train_apartment, train_building, test = False, split_before_handle = False)
+    
     return data
 
 
@@ -152,7 +170,3 @@ def load_and_handle_test():
     test_building = pd.read_csv('../data/buildings_test.csv')
     data = load_and_handle(test_apartment, test_building, test = True)
     return data
-
-
-train = load_and_handle_train()
-print(tabulate(train.head()))
