@@ -127,3 +127,37 @@ grad_boost_regr = GradientBoostingRegressor(
     ccp_alpha=0.0
 )
 features = ['area_total','r','constructed','district','theta']
+
+****************************************************************************************************
+LGBM1.0.csv
+TEST MSE: 0.29758032965415965
+score on public leaderboord: ???
+notebook: feature_selection
+model:
+light_gbm = lgb.LGBMRegressor(
+    num_leaves=10,
+    max_depth=5, 
+    random_state=42, 
+    silent=True, 
+    metric='mse',
+    n_jobs=4, 
+    n_estimators=2000,
+    colsample_bytree=0.95,
+    subsample=0.9,
+    learning_rate=0.05
+)
+features = ['area_total','floor','area_kitchen','r','rel_height']
+
+****************************************************************************************************
+Ada1.0.csv
+TEST MSE: 1.7053214221830322
+score on public leaderboord: ???
+notebook: feature_selection
+model:
+adaboost = AdaBoostRegressor(
+    n_estimators=1500,
+    learning_rate=0.05,
+    loss='exponential',
+    random_state=42
+)
+features = ['area_total','parking','r','district','floor']
