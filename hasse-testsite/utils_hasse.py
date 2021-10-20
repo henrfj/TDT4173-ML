@@ -129,13 +129,14 @@ def add_features(data, radius=False, penthouse=False):
         data = polar_coordinates(data)
     if penthouse:
         data = penthouse_features(data)
+    return data
 
 def load_and_handle(apartment, building, test = False):
     data = pd.merge(apartment, building, left_on='building_id', right_on='id')
     data.rename(columns={'id_x' : 'apartment_id'}, inplace=True)
     data.drop('id_y', axis=1, inplace=True)
     handle_NaN(data, test)
-    add_features(data, radius=True, penthouse=True)
+    data = add_features(data, radius=True, penthouse=True)
     return data
 
 
@@ -154,4 +155,4 @@ def load_and_handle_test():
 
 
 train = load_and_handle_train()
-print((train.head()))
+print(tabulate(train.head()))
