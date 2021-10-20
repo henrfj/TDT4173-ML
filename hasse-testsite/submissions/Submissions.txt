@@ -97,3 +97,67 @@ features = ['area_total', 'area_kitchen', 'area_living', 'floor', 'rooms', 'ceil
 		'condition', 'building_id', 'district', 'street', 'address', 'constructed', 'stories', 
 		'elevator_without', 'elevator_service', 'parking', 'garbage_chute', 'heating', 'r', 'theta']
 ​
+
+****************************************************************************************************
+GB1.0.csv
+TEST MSE: 0.20183055476440248
+score on public leaderboard: ???
+notebook: feature_selection
+model: 
+grad_boost_regr = GradientBoostingRegressor(
+    learning_rate=0.01,
+    n_estimators=2000,
+    subsample=1.0, 
+    criterion='mse', 
+    min_samples_split=4, 
+    min_samples_leaf=2, 
+    min_weight_fraction_leaf=0.0, 
+    max_depth=9, 
+    min_impurity_decrease=0.0, 
+    init=None, 
+    random_state=0, 
+    max_features=None,
+    alpha=0.9,
+    verbose=0,
+    max_leaf_nodes=None,
+    warm_start=False,
+    validation_fraction=0.1,
+    n_iter_no_change=None,
+    tol=0.0001,
+    ccp_alpha=0.0
+)
+features = ['area_total','r','constructed','district','theta']
+
+****************************************************************************************************
+LGBM1.0.csv
+TEST MSE: 0.29758032965415965
+score on public leaderboord: ???
+notebook: feature_selection
+model:
+light_gbm = lgb.LGBMRegressor(
+    num_leaves=10,
+    max_depth=5, 
+    random_state=42, 
+    silent=True, 
+    metric='mse',
+    n_jobs=4, 
+    n_estimators=2000,
+    colsample_bytree=0.95,
+    subsample=0.9,
+    learning_rate=0.05
+)
+features = ['area_total','floor','area_kitchen','r','rel_height']
+
+****************************************************************************************************
+Ada1.0.csv
+TEST MSE: 1.7053214221830322
+score on public leaderboord: ???
+notebook: feature_selection
+model:
+adaboost = AdaBoostRegressor(
+    n_estimators=1500,
+    learning_rate=0.05,
+    loss='exponential',
+    random_state=42
+)
+features = ['area_total','parking','r','district','floor']
