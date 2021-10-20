@@ -20,24 +20,8 @@ def plot_history(hist):
     plt.legend()
 
 def preProcess_numericalData(features, train, test, outliers_value=7, drop_nan=False):
-    # Removing proce outlayers
-    no_outlayers = train[(np.abs(stats.zscore(train[["price"]])) < outliers_value).all(axis=1)] 
-    if drop_nan:
-        no_outlayers = no_outlayers.dropna() #NB!
-
-    # Labels and targets
-    labels1 = no_outlayers[features]
-    labels1 = labels1.fillna(labels1.mean())
-    targets1= no_outlayers['price'] # Non nan values here.
-
-    # Test
-    test1 = test[features]
-    test1 = test1.fillna(test1.mean())
-
-    # Normalize
-    normalized_labels1 = (labels1-labels1.min())/(labels1.max()-labels1.min())
-    normalized_test1 = (test1-test1.min())/(test1.max()-test1.min())
-    return normalized_labels1, normalized_test1, targets1
+    # The old implementation was trash as it scaled training and testing data differently! Each normalized independently...
+    pass
 
 
 def polar_coordinates(labels, test):
