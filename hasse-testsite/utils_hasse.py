@@ -137,7 +137,7 @@ def add_features(data, radius=False, penthouse=False):
 
 def load_and_handle(apartment, building, test = False, split_before_handle=False):
     data = pd.merge(apartment, building, left_on='building_id', right_on='id')
-    data.rename(columns={'id_x' : 'apartment_id'}, inplace=True)
+    data.rename(columns={'id_x' : 'id'}, inplace=True)
     data.drop('id_y', axis=1, inplace=True)
     if not test:
         outlier_rejection(data, 7)
