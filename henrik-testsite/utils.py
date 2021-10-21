@@ -7,6 +7,7 @@ from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras import backend as K
 
 
 def pre_process_numerical(features, Numerical_features, train, test,
@@ -182,3 +183,35 @@ def plot_history(hist):
     plt.plot(hist['epoch'], hist['msle'], label='Train Error')
     plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
     plt.legend()
+
+# Keras loss functions. Home-made style.
+# BUG: only goes for 60 ish epochs, then quits.
+def root_mean_squared_log_error(y_true, y_pred):
+        return tf.keras.metrics.mean_squared_logarithmic_error(y_true, y_pred)**0.5
+
+# BUG: does weird stuff and gets no history.
+def root_mean_squared_error(y_true, y_pred):
+        return tf.keras.metrics.mean_squared_error(y_true, y_pred)**0.5
+
+# BUG: doesnt work for some reason...
+def root_mean_squared_log_error_2(y_true, y_pred):
+        log_error = K.log(y_pred) - K.log(y_true)
+        return K.sqrt(K.mean(K.square(log_error)))
+
+# The Good old 'rmse'. 
+def root_mean_squared_error_2(y_true, y_pred):
+        return K.sqrt(K.mean(K.square(y_pred - y_true))) 
+
+# From Kaggle
+def RMSLETF(y_pred:tf.Tensor, y_true:tf.Tensor) -> tf.float64:
+    '''
+        The Root Mean Squared Log Error (RMSLE) metric for TensorFlow / Keras
+        
+        :param y_true: The ground truth labels given in the dataset
+        :param y_pred: Predicted values
+        :return: The RMSLE score
+    '''
+    y_pred = tf.cast(y_pred, tf.float64)
+    y_true = tf.cast(y_true, tf.float64) 
+    y_pred = tf.nn.relu(y_pred) 
+    return tf.sqrt(tf.reduce_mean(tf.math.squared_difference(tf.math.log1p(y_pred), tf.math.log1p(y_true))))
