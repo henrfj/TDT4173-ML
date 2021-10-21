@@ -1,7 +1,4 @@
 import pandas as pd
-import time
-import random
-import math
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import seaborn as sns
@@ -12,22 +9,25 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
 
-def one_hot_encoder(train_df, val_df, test_df, cat_features, drop_old=True):
+def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
     '''
     Returns a copy of all three dfs, after one-hot encoding and !removing!
     their old cat_features.
 
-    NB! ASSUMES no nan-values, will crash otherwise.
+    BUG! Some categories are only present in train not test or the other way around!
+        - Then the encoding is made differently for the two!
+    https://stackoverflow.com/questions/57946006/one-hot-encoding-train-with-values-not-present-on-test
     '''
+    
     if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
         assert ValueError
 
     train_labels = train_df.copy()
-    val_labels = val_df.copy()
     test_labels = test_df.copy()
 
     encoded_features = []
-    for df in [train_labels, val_labels, test_labels]:
+    dfs=[train_labels, test_labels]
+    for df in dfs:
         for feature in cat_features:
             encoded_feat = OneHotEncoder().fit_transform(df[feature].values.reshape(-1, 1)).toarray()
             n = df[feature].nunique()
@@ -36,20 +36,22 @@ def one_hot_encoder(train_df, val_df, test_df, cat_features, drop_old=True):
             encoded_df.index = df.index
             encoded_features.append(encoded_df)
 
-    train_labels = pd.concat([train_labels, *encoded_features[:3]], axis=1)
-    val_labels = pd.concat([val_labels, *encoded_features[3:6]], axis=1)
-    test_labels = pd.concat([test_labels, *encoded_features[6:]], axis=1)
+    n = len(cat_features)
+
+    train_labels = pd.concat([train_labels, *encoded_features[ : n]], axis=1)
+    test_labels = pd.concat([test_labels, *encoded_features[n : ]], axis=1)
+
 
     # Now drop the non-encoded ones!
     if drop_old:
         train_labels.drop(cat_features, inplace=True, axis=1)
-        val_labels.drop(cat_features, inplace=True, axis=1)
         test_labels.drop(cat_features, inplace=True, axis=1)
-    return train_labels, val_labels, test_labels
+    return train_labels, test_labels
 
 def pre_process_numerical(features, Numerical_features, train, test,
                     outliers_value=7, val_split=0.1, random_state=42, scaler="none",
-                    add_R="False", add_rel_height="False", droptable=[]):
+                    add_R="False", add_rel_height="False", droptable=[],
+                    one_hot_encode=True, cat_features=[], drop_old=True):
     """
     Pre processes pandas dataframe, returns split datasets with preprocessing applied
     to numerical data.
@@ -75,6 +77,9 @@ def pre_process_numerical(features, Numerical_features, train, test,
     # Test data preprocessing
     test_labels = test[features]
     test_labels = test_labels.fillna(test_labels.mean())
+
+    if one_hot_encode:
+        labels, test_labels = one_hot_encoder(labels, test_labels, cat_features, drop_old=drop_old)
 
     # ADD R
     if add_R:
@@ -157,7 +162,6 @@ def polar_coordinates(labels, test):
 
     return labels1_normed_r, test1_normed_r
 
-# Train
 class PrintDot(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
         if epoch % 100 == 0: print('')
