@@ -12,28 +12,7 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
 
-# Specific tf libraries
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Dropout
-
-# Train
-class PrintDot(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs):
-        if epoch % 100 == 0: print('')
-        print('.', end='')
-
-def plot_history(hist):
-    plt.figure()
-    plt.xlabel('Epoch')
-    plt.ylabel('MSLE')
-    plt.yscale("log")
-    plt.plot(hist['epoch'], hist['msle'], label='Train Error')
-    plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
-    plt.legend()
-
-def one_hot_encoder(train_df, val_df, test_df, cat_features):
+def one_hot_encoder(train_df, val_df, test_df, cat_features, drop_old=True):
     '''
     Returns a copy of all three dfs, after one-hot encoding and !removing!
     their old cat_features.
@@ -62,9 +41,10 @@ def one_hot_encoder(train_df, val_df, test_df, cat_features):
     test_labels = pd.concat([test_labels, *encoded_features[6:]], axis=1)
 
     # Now drop the non-encoded ones!
-    train_labels.drop(cat_features, inplace=True, axis=1)
-    val_labels.drop(cat_features, inplace=True, axis=1)
-    test_labels.drop(cat_features, inplace=True, axis=1)
+    if drop_old:
+        train_labels.drop(cat_features, inplace=True, axis=1)
+        val_labels.drop(cat_features, inplace=True, axis=1)
+        test_labels.drop(cat_features, inplace=True, axis=1)
     return train_labels, val_labels, test_labels
 
 def pre_process_numerical(features, Numerical_features, train, test,
@@ -176,3 +156,18 @@ def polar_coordinates(labels, test):
     test1_normed_r['theta'] = np.arctan(test1_normed_r['longitude']/test1_normed_r['latitude'])
 
     return labels1_normed_r, test1_normed_r
+
+# Train
+class PrintDot(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs):
+        if epoch % 100 == 0: print('')
+        print('.', end='')
+
+def plot_history(hist):
+    plt.figure()
+    plt.xlabel('Epoch')
+    plt.ylabel('MSLE')
+    plt.yscale("log")
+    plt.plot(hist['epoch'], hist['msle'], label='Train Error')
+    plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
+    plt.legend()
