@@ -103,7 +103,7 @@ def impute_drop(data, features):
         data[feature].dropna(inplace=True)
         
 def handle_NaN(data, test = False):
-    all_features = ['apartment_id', 'seller', 'area_total', 'area_kitchen', 'area_living',
+    all_features = ['id', 'seller', 'area_total', 'area_kitchen', 'area_living',
                     'floor', 'rooms', 'layout', 'ceiling', 'bathrooms_shared',
                     'bathrooms_private', 'windows_court', 'windows_street', 'balconies',
                     'loggias', 'condition', 'phones', 'building_id', 'new', 'latitude',
@@ -152,7 +152,7 @@ def load_and_handle(apartment, building, test = False, split_before_handle=False
         return X_train, X_test, y_train, y_test
     handle_NaN(data, test)
     data = add_features(data, radius=True, penthouse=True)
-    return data
+    return data[]
 
 
 def load_and_handle_train(split_before_handle=False):
