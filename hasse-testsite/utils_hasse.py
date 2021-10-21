@@ -152,7 +152,7 @@ def load_and_handle(apartment, building, test = False, split_before_handle=False
         return X_train, X_test, y_train, y_test
     handle_NaN(data, test)
     data = add_features(data, radius=True, penthouse=True)
-    return data[]
+    return data
 
 
 def load_and_handle_train(split_before_handle=False):
