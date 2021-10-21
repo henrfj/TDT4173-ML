@@ -10,7 +10,6 @@ def fillnaReg(df, X_features, y_feature):
     reg = LinearRegression().fit(df_temp[X_features], df_temp[y_feature])
     predict = reg.predict(df[X_features])
     df[y_feature] = np.where(df[y_feature]>0, df[y_feature], predict)
-    # X.pop('area_living_pred')
     return df
 
 def getAllMetadata():
@@ -42,3 +41,18 @@ def getFeatureImportanceGraph(model, X_train):
     ax.set_title("MDI or Gini Importance")
     ax.set_ylabel("Mean decrease in impurity")
     fig.tight_layout()
+
+def getNonCategoricalAndCategoricalFeatures(metadata):
+    categorical = []
+    nonCategorical = []
+    for _, feature in metadata.iterrows():
+        if feature['type'] == 'categorical': categorical.append(feature['name'])
+        else: nonCategorical.append(feature['name'])
+    return nonCategorical, categorical
+
+def oneHotFeature(metadata, data, feature):
+    values = list(metadata.loc[metadata['name'] == feature]['cats'])[0]
+    for i, value in enumerate(values):
+        new_column = [1 if row == i else 0 for row in list(data[feature])]
+        data[value] = new_column
+    return values
