@@ -101,7 +101,7 @@ features = ['area_total', 'area_kitchen', 'area_living', 'floor', 'rooms', 'ceil
 ****************************************************************************************************
 GB1.0.csv
 TEST MSE: 0.20183055476440248
-score on public leaderboard: ???
+score on public leaderboard: 0.25809
 notebook: feature_selection
 model: 
 grad_boost_regr = GradientBoostingRegressor(
