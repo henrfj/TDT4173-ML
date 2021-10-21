@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
-import seaborn as sns
 import numpy as np
 from scipy import stats
 from sklearn import preprocessing
@@ -9,44 +8,6 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
 
-def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
-    '''
-    Returns a copy of all three dfs, after one-hot encoding and !removing!
-    their old cat_features.
-
-    BUG! Some categories are only present in train not test or the other way around!
-        - Then the encoding is made differently for the two!
-    https://stackoverflow.com/questions/57946006/one-hot-encoding-train-with-values-not-present-on-test
-    '''
-    
-    if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
-        assert ValueError
-
-    train_labels = train_df.copy()
-    test_labels = test_df.copy()
-
-    encoded_features = []
-    dfs=[train_labels, test_labels]
-    for df in dfs:
-        for feature in cat_features:
-            encoded_feat = OneHotEncoder().fit_transform(df[feature].values.reshape(-1, 1)).toarray()
-            n = df[feature].nunique()
-            cols = ['{}_{}'.format(feature, n) for n in range(1, n + 1)]
-            encoded_df = pd.DataFrame(encoded_feat, columns=cols)
-            encoded_df.index = df.index
-            encoded_features.append(encoded_df)
-
-    n = len(cat_features)
-
-    train_labels = pd.concat([train_labels, *encoded_features[ : n]], axis=1)
-    test_labels = pd.concat([test_labels, *encoded_features[n : ]], axis=1)
-
-
-    # Now drop the non-encoded ones!
-    if drop_old:
-        train_labels.drop(cat_features, inplace=True, axis=1)
-        test_labels.drop(cat_features, inplace=True, axis=1)
-    return train_labels, test_labels
 
 def pre_process_numerical(features, Numerical_features, train, test,
                     outliers_value=7, val_split=0.1, random_state=42, scaler="none",
@@ -64,6 +25,11 @@ def pre_process_numerical(features, Numerical_features, train, test,
             - scaler: none, minMax, or std. minMax scaled to range 1-0 and std scales around mean.
             - add_R if you want to add radius to dataset. add_rel_height to add rel height.
             - droptable: any features you want to drop at the end of preprocessing.
+            Then for one-hot-encoding
+            - Toogle it with "one_hot_encode"
+            - Insert what cat-features you want to encode.
+            - Drop_old is if you want to replace/delete the old categorical features,
+            or keep them.
     """
 
     # Remove outlayers from training data
@@ -131,6 +97,47 @@ def pre_process_numerical(features, Numerical_features, train, test,
     test_labels.drop(droptable, inplace=True, axis=1)
 
     return train_labels, train_targets, val_labels, val_targets, test_labels
+
+def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
+    '''
+    Returns a copy of all three dfs, after one-hot encoding and !removing!
+    their old cat_features.
+
+    BUG! Some categories are only present in train not test or the other way around!
+        - Then the encoding is made differently for the two!
+    https://stackoverflow.com/questions/57946006/one-hot-encoding-train-with-values-not-present-on-test
+    '''
+    
+    if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
+        assert ValueError
+
+    train_labels = train_df.copy()
+    test_labels = test_df.copy()
+
+    encoded_features = []
+    dfs=[train_labels, test_labels]
+    for df in dfs:
+        for feature in cat_features:
+            encoded_feat = OneHotEncoder().fit_transform(df[feature].values.reshape(-1, 1)).toarray()
+            n = df[feature].nunique()
+            cols = ['{}_{}'.format(feature, n) for n in range(1, n + 1)]
+            encoded_df = pd.DataFrame(encoded_feat, columns=cols)
+            encoded_df.index = df.index
+            encoded_features.append(encoded_df)
+
+    n = len(cat_features)
+
+    train_labels = pd.concat([train_labels, *encoded_features[ : n]], axis=1)
+    test_labels = pd.concat([test_labels, *encoded_features[n : ]], axis=1)
+
+
+    # Now drop the non-encoded ones!
+    if drop_old:
+        train_labels.drop(cat_features, inplace=True, axis=1)
+        test_labels.drop(cat_features, inplace=True, axis=1)
+    return train_labels, test_labels
+
+
 
 def get_cat_and_non_cat_data(metadata):
     categorical = []
