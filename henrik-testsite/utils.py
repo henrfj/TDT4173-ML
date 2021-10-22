@@ -76,11 +76,12 @@ def pre_process_numerical(features, Numerical_features, train, test,
         train_labels_scaled = std_scale.transform(train_labels_n)
         val_labels_scaled = std_scale.transform(val_labels_n)
         test_labels_scaled = std_scale.transform(test_labels_n)
-    else:
+    elif scaler=="none":
         train_labels_scaled = train_labels_n
         val_labels_scaled = val_labels_n
         test_labels_scaled = test_labels_n
-        
+    else:
+        assert ValueError, "Incorrect scaler"
 
     # Re-enter proceedure
     training_norm_col = pd.DataFrame(train_labels_scaled, index=train_labels_n.index, columns=train_labels_n.columns) 
@@ -189,16 +190,21 @@ def plot_history(hist):
 def root_mean_squared_log_error(y_true, y_pred):
         return tf.keras.metrics.mean_squared_logarithmic_error(y_true, y_pred)**0.5
 
+# Attempt two homemade.
+def rmsle_custom(y_true, y_pred):
+    msle = tf.keras.losses.MeanSquaredLogarithmicError()
+    return K.sqrt(msle(y_true, y_pred)) 
+
 # BUG: does weird stuff and gets no history.
 def root_mean_squared_error(y_true, y_pred):
         return tf.keras.metrics.mean_squared_error(y_true, y_pred)**0.5
 
 # BUG: doesnt work for some reason...
+# They are all a bit unstable => many restarts!
 def root_mean_squared_log_error_2(y_true, y_pred):
-        log_error = K.log(y_pred) - K.log(y_true)
-        return K.sqrt(K.mean(K.square(log_error)))
+        return K.sqrt(K.mean(K.square(K.log(y_pred) - K.log(y_true))))
 
-# The Good old 'rmse'. 
+# The Good old 'rmse'. NO LOG!!
 def root_mean_squared_error_2(y_true, y_pred):
         return K.sqrt(K.mean(K.square(y_pred - y_true))) 
 
@@ -215,3 +221,4 @@ def RMSLETF(y_pred:tf.Tensor, y_true:tf.Tensor) -> tf.float64:
     y_true = tf.cast(y_true, tf.float64) 
     y_pred = tf.nn.relu(y_pred) 
     return tf.sqrt(tf.reduce_mean(tf.math.squared_difference(tf.math.log1p(y_pred), tf.math.log1p(y_true))))
+
