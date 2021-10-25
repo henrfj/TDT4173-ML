@@ -7,6 +7,7 @@ from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras import backend as K
 
 
 def pre_process_numerical(features, Numerical_features, train, test,
@@ -75,11 +76,12 @@ def pre_process_numerical(features, Numerical_features, train, test,
         train_labels_scaled = std_scale.transform(train_labels_n)
         val_labels_scaled = std_scale.transform(val_labels_n)
         test_labels_scaled = std_scale.transform(test_labels_n)
-    else:
+    elif scaler=="none":
         train_labels_scaled = train_labels_n
         val_labels_scaled = val_labels_n
         test_labels_scaled = test_labels_n
-        
+    else:
+        assert ValueError, "Incorrect scaler"
 
     # Re-enter proceedure
     training_norm_col = pd.DataFrame(train_labels_scaled, index=train_labels_n.index, columns=train_labels_n.columns) 
@@ -182,3 +184,45 @@ def plot_history(hist):
     plt.plot(hist['epoch'], hist['msle'], label='Train Error')
     plt.plot(hist['epoch'], hist['val_msle'], label = 'Val Error')
     plt.legend()
+
+# Attempt at homemade.
+def rmsle_custom(y_true, y_pred):
+    msle = tf.keras.losses.MeanSquaredLogarithmicError()
+    return K.sqrt(msle(y_true, y_pred))
+
+
+def load_all_data(fraction_of_data=1, apartment_id='apartment_id'):
+    # Metadata
+    metaData_apartment = pd.read_json('../data/apartments_meta.json')
+    metaData_building = pd.read_json('../data/buildings_meta.json')
+    metaData = pd.concat([metaData_apartment, metaData_building])
+
+    # Train
+    train_apartment = pd.read_csv('../data/apartments_train.csv')
+    train_building = pd.read_csv('../data/buildings_train.csv')
+    train = pd.merge(train_apartment, train_building, left_on='building_id', right_on='id')
+    train.rename(columns={'id_x' : apartment_id}, inplace=True)
+    train.drop('id_y', axis=1, inplace=True)
+    train = train.head(int(train.shape[0] * fraction_of_data))
+
+    # Test
+    test_apartment = pd.read_csv('../data/apartments_test.csv')
+    test_building = pd.read_csv('../data/buildings_test.csv')
+    test = pd.merge(test_apartment, test_building, left_on='building_id', right_on='id')
+    test.rename(columns={'id_x' : apartment_id}, inplace=True)
+    test.drop('id_y', axis=1, inplace=True)
+
+    return train, test, metaData
+
+def predict_and_store(model, test_labels, test_pd, path="default"):
+    '''
+        Inputs
+        - test_pd needs to be the original full test dataframe
+    '''
+    result = model.predict(test_labels)
+    submission = pd.DataFrame()
+    submission['id'] = test_pd['apartment_id']
+    submission['price_prediction'] = result
+    if len(submission['id']) != 9937:
+        raise Exception("Not enough rows submitted!")
+    submission.to_csv(path, index=False)
