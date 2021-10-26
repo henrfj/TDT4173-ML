@@ -12,21 +12,23 @@ Possibilities:
 * Spatiousness
 * ..?
 
+Other feature engineering: 
+* One hot encoding
+* Normalization
+* Categorical to numerical (for street and address)
+
 
 ## Models
 * Finetune models (nothing done so far)
-* Explore other options
-    * SVM
-    * ..?
+* Further explore other options
+    * SVR
+    * XGBoost
 * STACKING
 
 ## Submissions
 
-Submit on Kaggle
-* LGBM1.0
-* Ada1.0 ?
-
 Prepare
 * Catboost submission with 5 top features
-* Submission on ONLY area_total
 * Submissions with around 8-10 features
+* XGBoost submission on selected features
+* Gradient boost on carefully selected features and include new one hot encoding
