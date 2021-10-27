@@ -13,6 +13,19 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
+from sklearn.preprocessing import LabelEncoder
+
+def root_mean_squared_log_error(y_true, y_pred):
+    # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
+    assert (y_true >= 0).all() 
+    assert (y_pred >= 0).all()
+    log_error = np.log1p(y_pred) - np.log1p(y_true)  # Note: log1p(x) = log(1 + x)
+    return np.mean(log_error ** 2) ** 0.5
+
+def categorical_to_numerical(data, features):
+    le = LabelEncoder()
+    for feature in features:
+        data[feature] = le.fit_transform(data[feature])
 
 def pre_process_numerical(features, Numerical_features, train, test,
                     outliers_value=7, val_split=0.1, random_state=42, scaler="none",
