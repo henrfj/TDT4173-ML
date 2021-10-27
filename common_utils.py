@@ -262,5 +262,5 @@ def create_ANN_model(dense_layers=[18,12,6], activation=tf.nn.leaky_relu, dropou
     model.compile(optimizer=optimizer, 
                 loss=loss_function, #'msle', 'rmse', RMSLETF, rmsle_custom
                 metrics=metrics) # metrics=['mse', 'msle'] metrics=[tf.keras.metrics.Accuracy()]
-    
+
     return model
