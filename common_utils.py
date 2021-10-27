@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
+import random
+from collections import Counter, defaultdict
 from scipy import stats
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
@@ -15,6 +17,8 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
 from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import StratifiedGroupKFold
+
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
@@ -28,7 +32,7 @@ def categorical_to_numerical(data, features):
     for feature in features:
         data[feature] = le.fit_transform(data[feature])
 
-def pre_process_numerical(features, Numerical_features, train, test,
+def pre_process_numerical(features, numerical_features, train, test,
                     outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
                     add_R="False", add_rel_height="False", droptable=[],
                     one_hot_encode=True, cat_features=[], drop_old=True):
@@ -51,6 +55,8 @@ def pre_process_numerical(features, Numerical_features, train, test,
             - Drop_old is if you want to replace/delete the old categorical features,
             or keep them.
     """
+    # Make a copy of data that is altered
+    Numerical_features = numerical_features.copy()
 
     # Remove outlayers from training data
     no_outlayers = train[(np.abs(stats.zscore(train['price'])) < outliers_value)]
@@ -70,18 +76,19 @@ def pre_process_numerical(features, Numerical_features, train, test,
     # ADD R
     if add_R:
         labels, test_labels = polar_coordinates(labels, test_labels)
+        Numerical_features.append("r")
     # ADD rel_height
     if add_rel_height:
         labels['rel_height'] = labels["floor"] / labels["stories"]
         test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+        Numerical_features.append("rel_height")
 
     # Split
-    # TODO: Should also workf for vali_split = 0
     # TODO: dont split apartments of same building.
     
     if val_data:
         train_labels, val_labels, train_targets, val_targets = train_test_split(
-            labels, targets, test_size=val_split, shuffle= True, random_state=random_state)
+            labels, targets, test_size=val_split, shuffle=True) #random_state=random_state
     else:
         train_labels = labels.copy()
         val_labels = labels.copy()
@@ -278,15 +285,20 @@ def predict_and_store(model, test_labels, test_pd, path="default"):
     submission.to_csv(path, index=False)
 
 
-def create_ANN_model(dense_layers=[18,12,6], activation=tf.nn.leaky_relu, dropout=False, dropout_rate=0.2, optimizer='adam', loss_function=rmsle_custom, metrics=[tf.keras.metrics.Accuracy()]):
+def create_ANN_model(dense_layers=[64, 64, 64], activation=tf.nn.leaky_relu,
+                     dropout=[False, False, False], dropout_rate=0.2, optimizer='adam',
+                      loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True):
     # Model
     model = tf.keras.Sequential()
-    for n in dense_layers:
+    for i, n in enumerate(dense_layers):
         model.add(Dense(n, activation=activation))
-        if dropout:
+        if dropout[i]:
             model.add(Dropout(dropout_rate))
     
-    model.add(Dense(1)) #Output
+    if output_activation:
+        model.add(Dense(1, activation=activation))
+    else:
+        model.add(Dense(1)) #Output
 
     # Optimized for reducing msle loss.
     model.compile(optimizer=optimizer, 
@@ -294,3 +306,47 @@ def create_ANN_model(dense_layers=[18,12,6], activation=tf.nn.leaky_relu, dropou
                 metrics=metrics) # metrics=['mse', 'msle'] metrics=[tf.keras.metrics.Accuracy()]
 
     return model
+
+def csv_bagging(kaggle_scores, csv_paths, submission_path):
+    # Making the acc dataframe
+    d = {}
+    for i, score in enumerate(kaggle_scores):
+        d[i] = score
+    acc = pd.DataFrame(
+    d,
+    index=[0]
+    )
+    acc = acc.T
+    acc.columns = ['RMSLE']
+    acc
+
+    # Read dataframes, sort and store
+    pd_predictions = []
+    for path in csv_paths:
+        pd_predictions.append(
+            pd.read_csv(path).sort_values(by="id")
+            )
+    # Cast to numpy
+    np_predictions = []
+    for pred in pd_predictions:
+        np_predictions.append(
+            pred["price_prediction"].to_numpy().T
+        )
+
+    # Bagging
+    avg_prediction = np.average(
+        np_predictions,
+        weights = 1 / acc['RMSLE'] ** 4,
+        axis=0
+        )
+    
+    result = avg_prediction
+    submission = pd.DataFrame()
+    submission['id'] = pd_predictions[0]['id']
+    submission['price_prediction'] = result
+    if len(submission['id']) != 9937:
+        raise Exception("Not enough rows submitted!")
+    
+    submission.to_csv(submission_path, index=False)
+
+
