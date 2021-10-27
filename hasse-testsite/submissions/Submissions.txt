@@ -192,7 +192,7 @@ grad_boost_regr = GradientBoostingRegressor(
 features = ['area_total']
 ****************************************************************************************************
 XGB1.0.csv
-TEST RMSLE: 0.16932079045682918
+TEST RMSLE: ??
 score on public leaderboard: 0.23787
 notebook: Xgboost
 model: 
@@ -212,3 +212,32 @@ features = ['apartment_id', 'seller', 'area_total', 'area_kitchen', 'area_living
        'longitude', 'district', 'street', 'address', 'constructed', 'material',
        'stories', 'elevator_without', 'elevator_passenger', 'elevator_service',
        'parking', 'garbage_chute', 'heating']
+
+****************************************************************************************************
+XGB1.2.csv
+TEST RMSLE: 0.16932079045682918
+score on public leaderboard: 0.27521
+notebook: Xgboost
+model: 
+model = xgb.XGBRegressor(eta = 0.1, 
+max_depth=10, 
+min_child_weight=1,  
+eval_metric = 'rmsle', 
+n_estimators=500,
+n_jobs=-1 , 
+verbose=1,
+learning_rate=0.16, 
+seed=42)
+features = ['apartment_id', 'area_total', 'area_kitchen', 'area_living', 'floor',
+       'rooms', 'ceiling', 'bathrooms_shared', 'bathrooms_private',
+       'windows_court', 'windows_street', 'balconies', 'loggias', 'phones',
+       'building_id', 'new', 'latitude', 'longitude', 'district', 'street',
+       'address', 'constructed', 'stories', 'elevator_without',
+       'elevator_passenger', 'elevator_service', 'garbage_chute', 'seller_1',
+       'seller_2', 'seller_3', 'seller_4', 'seller_5', 'layout_1', 'layout_2',
+       'layout_3', 'layout_4', 'condition_1', 'condition_2', 'condition_3',
+       'condition_4', 'condition_5', 'material_1', 'material_2', 'material_3',
+       'material_4', 'material_5', 'material_6', 'material_7', 'material_8',
+       'parking_1', 'parking_2', 'parking_3', 'parking_4', 'heating_1',
+       'heating_2', 'heating_3', 'heating_4', 'heating_5', 'r', 'theta',
+       'rel_height']
