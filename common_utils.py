@@ -40,6 +40,7 @@ def pre_process_numerical(features, Numerical_features, train, test,
             - features, numerical features: list of all features and all numerical ones.
             - train and test: train and test dataset. Train also has target "price".
             - outliers_value: removes data outside the range of mean+outliers_value*std
+            - val_data: bool to determine wheter or not you want validation data.
             - val_split: what percentage of data to use to validate.
             - scaler: none, minMax, or std. minMax scaled to range 1-0 and std scales around mean.
             - add_R if you want to add radius to dataset. add_rel_height to add rel height.
@@ -126,7 +127,11 @@ def pre_process_numerical(features, Numerical_features, train, test,
     val_labels.drop(droptable, inplace=True, axis=1)
     test_labels.drop(droptable, inplace=True, axis=1)
 
-    return train_labels, train_targets, val_labels, val_targets, test_labels
+    if val_data:
+        return train_labels, train_targets, val_labels, val_targets, test_labels
+    else:
+        return train_labels, train_targets, test_labels
+
 
 def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
     '''
