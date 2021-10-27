@@ -7,8 +7,12 @@ from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
+# Specific tf libraries
 from tensorflow.keras import backend as K
-
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Dropout
 
 def pre_process_numerical(features, Numerical_features, train, test,
                     outliers_value=7, val_split=0.1, random_state=42, scaler="none",
@@ -226,3 +230,21 @@ def predict_and_store(model, test_labels, test_pd, path="default"):
     if len(submission['id']) != 9937:
         raise Exception("Not enough rows submitted!")
     submission.to_csv(path, index=False)
+
+
+def create_ANN_model(dense_layers=[18,12,6], activation=tf.nn.leaky_relu, dropout=False, dropout_rate=0.2, optimizer='adam', loss_function=rmsle_custom, metrics=[tf.keras.metrics.Accuracy()]):
+    # Model
+    model = tf.keras.Sequential()
+    for n in dense_layers:
+        model.add(Dense(n, activation=activation))
+        if dropout:
+            model.add(Dropout(dropout_rate))
+    
+    model.add(Dense(1)) #Output
+
+    # Optimized for reducing msle loss.
+    model.compile(optimizer=optimizer, 
+                loss=loss_function, #'msle', 'rmse', RMSLETF, rmsle_custom
+                metrics=metrics) # metrics=['mse', 'msle'] metrics=[tf.keras.metrics.Accuracy()]
+    
+    return model
