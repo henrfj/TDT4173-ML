@@ -61,6 +61,8 @@ def pre_process_numerical(features, Numerical_features, train, test,
         test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
 
     # Split
+    # TODO: Should also workf for vali_split = 0
+    # TODO: dont split apartments of same building.
     train_labels, val_labels, train_targets, val_targets = train_test_split(
         labels, targets, test_size=val_split, shuffle= True, random_state=random_state)
     
@@ -113,6 +115,7 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
         - Then the encoding is made differently for the two!
     https://stackoverflow.com/questions/57946006/one-hot-encoding-train-with-values-not-present-on-test
     '''
+    # TODO: use Laures one-hot encoder.
     
     if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
         assert ValueError
