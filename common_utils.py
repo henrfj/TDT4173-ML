@@ -29,7 +29,7 @@ def categorical_to_numerical(data, features):
         data[feature] = le.fit_transform(data[feature])
 
 def pre_process_numerical(features, Numerical_features, train, test,
-                    outliers_value=7, val_split=0.1, random_state=42, scaler="none",
+                    outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
                     add_R="False", add_rel_height="False", droptable=[],
                     one_hot_encode=True, cat_features=[], drop_old=True):
     """
@@ -77,9 +77,17 @@ def pre_process_numerical(features, Numerical_features, train, test,
     # Split
     # TODO: Should also workf for vali_split = 0
     # TODO: dont split apartments of same building.
-    train_labels, val_labels, train_targets, val_targets = train_test_split(
-        labels, targets, test_size=val_split, shuffle= True, random_state=random_state)
     
+    if val_data:
+        train_labels, val_labels, train_targets, val_targets = train_test_split(
+            labels, targets, test_size=val_split, shuffle= True, random_state=random_state)
+    else:
+        train_labels = labels.copy()
+        val_labels = labels.copy()
+        train_targets = targets.copy()
+        val_targets = targets.copy()
+
+
     # Only normalize/scale the numerical data. Categorical data is kept as is.
     train_labels_n = train_labels.filter(Numerical_features)
     val_labels_n = val_labels.filter(Numerical_features)
