@@ -6,6 +6,7 @@ from scipy import stats
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
 
 # Specific tf libraries
 from tensorflow.keras import backend as K
@@ -159,6 +160,22 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
         test_labels.drop(cat_features, inplace=True, axis=1)
     return train_labels, test_labels
 
+def oneHotFeature(metadata, data, feature):
+    values = list(metadata.loc[metadata['name'] == feature]['cats'])[0]
+    for i, value in enumerate(values):
+        new_column = [1 if row == i else 0 for row in list(data[feature])]
+        data[value] = new_column
+    return values
+
+
+def fillnaReg(df, X_features, y_feature):
+    df = df.copy()
+    df_temp = df[df[y_feature].notna()]
+    if df_temp.shape[0] == 1: df_temp = df_temp.values.reshape(-1, 1)
+    reg = LinearRegression().fit(df_temp[X_features], df_temp[y_feature])
+    predict = reg.predict(df[X_features])
+    df[y_feature] = np.where(df[y_feature]>0, df[y_feature], predict)
+    return df
 
 
 def get_cat_and_non_cat_data(metadata):
