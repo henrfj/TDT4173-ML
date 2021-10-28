@@ -1,4 +1,5 @@
 from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import KFold
 import numpy as np
 import pandas as pd
 import matplotlib.pylab as plt
@@ -56,3 +57,22 @@ def oneHotFeature(metadata, data, feature):
         new_column = [1 if row == i else 0 for row in list(data[feature])]
         data[value] = new_column
     return values
+
+def oneHotFeatureStringCat(data, feature, cats):
+    for value in cats:
+        new_column = [1 if value in row else 0 for row in list(data[feature])]
+        data[value] = new_column
+    return cats
+
+def KFoldValidation(model, k, scorefunction, trainData):
+    kf = KFold(n_splits=k, shuffle=True)
+    scores = []
+    # predictions = np.array([])
+    for train_index, test_index in kf.split(trainData):
+        X_train, X_test = trainData.iloc[train_index].drop('price', axis=1), trainData.iloc[test_index].drop('price', axis=1)
+        y_train, y_test = trainData.iloc[train_index]['price'], trainData.iloc[test_index]['price']
+        model.fit(X_train, y_train)
+        prediction = model.predict(X_test)
+        scores.append(scorefunction(prediction, y_test))
+        # predictions = np.c_[predictions, prediction]
+    return np.average(scores)       #, np.average(predictions, axis=0)
