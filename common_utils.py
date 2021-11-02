@@ -145,6 +145,8 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
     Returns a copy of all three dfs, after one-hot encoding and !removing!
     their old cat_features.
 
+    NB! pd.get_dummies() does pretty much the same job!
+    https://stackoverflow.com/questions/36285155/pandas-get-dummies
     BUG! Some categories are only present in train not test or the other way around!
         - Then the encoding is made differently for the two!
     https://stackoverflow.com/questions/57946006/one-hot-encoding-train-with-values-not-present-on-test
