@@ -248,14 +248,12 @@ TEST RMSLE: 0.12217083807945368
 score on public leaderboard: 0.21959
 notebook: CrossValidation
 model: 
-gbm6 = lightgbm.LGBMRegressor(random_state=33,
+lgbm= lightgbm.LGBMRegressor(random_state=33,
                               early_stopping_rounds = 10,
                               n_estimators=10000
                              )
 
-# gbm6.set_params(**{'objective': custom_asymmetric_objective}, metrics = ["mse", 'mae'])
-
-gbm6.fit(
+lgbm.fit(
     X_train,
     np.log(y_train),
     eval_set=[(X_test, np.log(y_test))],
