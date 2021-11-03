@@ -34,7 +34,7 @@ def categorical_to_numerical(data, features):
 
 def pre_process_numerical(features, numerical_features, train, test,
                     outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
-                    add_R="False", add_rel_height="False", droptable=[],
+                    add_R=False, add_rel_height=False, add_spacious=False, droptable=[],
                     one_hot_encode=True, cat_features=[], drop_old=True):
     """
     Pre processes pandas dataframe, returns split datasets with preprocessing applied
@@ -73,6 +73,7 @@ def pre_process_numerical(features, numerical_features, train, test,
     if one_hot_encode:
         labels, test_labels = one_hot_encoder(labels, test_labels, cat_features, drop_old=drop_old)
 
+    # Adding some new features
     # ADD R
     if add_R:
         labels, test_labels = polar_coordinates(labels, test_labels)
@@ -82,6 +83,11 @@ def pre_process_numerical(features, numerical_features, train, test,
         labels['rel_height'] = labels["floor"] / labels["stories"]
         test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
         Numerical_features.append("rel_height")
+    if add_spacious:
+        labels['Spacious_rooms'] = labels['area_total'] /labels['rooms']
+        test_labels['Spacious_rooms'] = test_labels['area_total'] /test_labels['rooms']
+        Numerical_features.append("Spacious_rooms")
+
 
     # Split
     # TODO: dont split apartments of same building.
