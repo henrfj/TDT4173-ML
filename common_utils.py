@@ -322,12 +322,14 @@ def load_all_data(fraction_of_data=1, apartment_id='apartment_id'):
 
     return train, test, metaData
 
-def predict_and_store(model, test_labels, test_pd, path="default"):
+def predict_and_store(model, test_labels, test_pd, path="default", exponential=False):
     '''
         Inputs
         - test_pd needs to be the original full test dataframe
     '''
     result = model.predict(test_labels)
+    if exponential:
+        result = np.exp(result)
     submission = pd.DataFrame()
     submission['id'] = test_pd['apartment_id']
     submission['price_prediction'] = result
