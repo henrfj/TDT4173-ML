@@ -245,7 +245,9 @@ def polar_coordinates(labels, test):
 
     return labels1_normed_r, test1_normed_r
 
-def lgbm_groupKFold(number_of_splits, model, X_train, y_train):    
+def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    # y_train is log!!
     X_train = X_train.copy()
     y_train = y_train.copy()
     
@@ -262,7 +264,40 @@ def lgbm_groupKFold(number_of_splits, model, X_train, y_train):
             X_train2,
             y_train2,
             eval_set=[(X_test, y_test)],
-            eval_metric='neg_root_mean_squared_error',
+            eval_metric=eval_metric,
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def XGB_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            early_stopping_rounds=15,
             verbose=False,
         )    
         prediction = np.exp(model.predict(X_test))
