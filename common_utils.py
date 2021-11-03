@@ -310,6 +310,9 @@ def XGB_groupKFold(number_of_splits, model, X_train, y_train,
         i += 1
     return scores, np.average(scores), best_model, best_index
 
+def custom_asymmetric_eval(y_true, y_pred):
+    loss = root_mean_squared_log_error(y_true,y_pred)
+    return "custom_asymmetric_eval", np.mean(loss), False
 
 class PrintDot(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
@@ -354,12 +357,14 @@ def load_all_data(fraction_of_data=1, apartment_id='apartment_id'):
 
     return train, test, metaData
 
-def predict_and_store(model, test_labels, test_pd, path="default"):
+def predict_and_store(model, test_labels, test_pd, path="default", exponential=False):
     '''
         Inputs
         - test_pd needs to be the original full test dataframe
     '''
     result = model.predict(test_labels)
+    if exponential:
+        result = np.exp(result)
     submission = pd.DataFrame()
     submission['id'] = test_pd['apartment_id']
     submission['price_prediction'] = result
