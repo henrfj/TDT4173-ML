@@ -240,7 +240,7 @@ def lgbm_groupKFold(number_of_splits, model, X_train, y_train):
     y_train = y_train.copy()
     
     scores = []
-    gkf = GroupKFold(n_splits=numberSplits)
+    gkf = GroupKFold(n_splits=number_of_splits)
     groups = X_train["building_id"]
     best_score = 1
     i = 0
