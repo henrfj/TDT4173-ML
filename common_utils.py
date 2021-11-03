@@ -262,7 +262,7 @@ def lgbm_groupKFold(number_of_splits, model, X_train, y_train):
             X_train2,
             y_train2,
             eval_set=[(X_test, y_test)],
-            eval_metric=custom_asymmetric_eval,
+            eval_metric='neg_root_mean_squared_error',
             verbose=False,
         )    
         prediction = np.exp(model.predict(X_test))
