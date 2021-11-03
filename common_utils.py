@@ -275,6 +275,10 @@ def lgbm_groupKFold(number_of_splits, model, X_train, y_train):
         i += 1
     return scores, np.average(scores), best_model, best_index
 
+def custom_asymmetric_eval(y_true, y_pred):
+    loss = root_mean_squared_log_error(y_true,y_pred)
+    return "custom_asymmetric_eval", np.mean(loss), False
+
 class PrintDot(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
         if epoch % 100 == 0: print('')
