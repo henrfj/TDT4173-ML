@@ -31,7 +31,7 @@ def categorical_to_numerical(data, features):
     for feature in features:
         data[feature] = le.fit_transform(data[feature])
 
-def pre_process_numerical(features, numerical_features, train, test,
+def pre_process_numerical(features, numerical_features, train, test, metadata=[],
                     outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
                     add_R=False, add_rel_height=False, add_spacious=False, droptable=[],
                     one_hot_encode=True, cat_features=[], drop_old=True):
@@ -69,7 +69,11 @@ def pre_process_numerical(features, numerical_features, train, test,
     test_labels = test[features]
     test_labels = test_labels.fillna(test_labels.mean())
 
-    if one_hot_encode:
+    if one_hot_encode and len(metadata):
+        oneHotFeatures(metadata, labels, cat_features)
+        oneHotFeatures(metadata, test_labels, cat_features)
+
+    elif one_hot_encode:
         labels, test_labels = one_hot_encoder(labels, test_labels, cat_features, drop_old=drop_old)
 
     # Adding some new features
@@ -186,6 +190,12 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
         train_labels.drop(cat_features, inplace=True, axis=1)
         test_labels.drop(cat_features, inplace=True, axis=1)
     return train_labels, test_labels
+
+def oneHotFeatures(metadata, data, features):
+    values = []
+    for feature in features:
+        values.append(oneHotFeature(metadata, data, feature))
+    return values
 
 def oneHotFeature(metadata, data, feature):
     values = list(metadata.loc[metadata['name'] == feature]['cats'])[0]
