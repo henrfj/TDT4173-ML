@@ -19,8 +19,10 @@ Possibilities:
 
 Other feature engineering: 
 * One hot encoding
+    * Ordinal categorical data
 * Normalization
 * Categorical to numerical (for street and address)
+* Street names
 
 
 ## Models
@@ -37,6 +39,21 @@ Other feature engineering:
 * Remove super correlated features
 
 * RSMLE
+
+* LGBM tuning
+    * Regularization:
+        * lambda_l1
+        * num_leaves
+        * subsample
+        * feature_fraction
+        * max_depth
+        * max_bin
+    * Training
+        * num_iterations
+        * early_stopping_rounds
+        * categorical_feature (don't use one hot!)
+        * learning_rate = eta
+
 
 ## Submissions
 

@@ -17,8 +17,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import StratifiedGroupKFold
-
+from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
@@ -32,9 +31,9 @@ def categorical_to_numerical(data, features):
     for feature in features:
         data[feature] = le.fit_transform(data[feature])
 
-def pre_process_numerical(features, numerical_features, train, test,
+def pre_process_numerical(features, numerical_features, train, test, metadata=[],
                     outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
-                    add_R="False", add_rel_height="False", droptable=[],
+                    add_R=False, add_rel_height=False, add_spacious=False, droptable=[],
                     one_hot_encode=True, cat_features=[], drop_old=True):
     """
     Pre processes pandas dataframe, returns split datasets with preprocessing applied
@@ -70,9 +69,14 @@ def pre_process_numerical(features, numerical_features, train, test,
     test_labels = test[features]
     test_labels = test_labels.fillna(test_labels.mean())
 
-    if one_hot_encode:
+    if one_hot_encode and len(metadata):
+        oneHotFeatures(metadata, labels, cat_features)
+        oneHotFeatures(metadata, test_labels, cat_features)
+
+    elif one_hot_encode:
         labels, test_labels = one_hot_encoder(labels, test_labels, cat_features, drop_old=drop_old)
 
+    # Adding some new features
     # ADD R
     if add_R:
         labels, test_labels = polar_coordinates(labels, test_labels)
@@ -82,6 +86,11 @@ def pre_process_numerical(features, numerical_features, train, test,
         labels['rel_height'] = labels["floor"] / labels["stories"]
         test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
         Numerical_features.append("rel_height")
+    if add_spacious:
+        labels['Spacious_rooms'] = labels['area_total'] /labels['rooms']
+        test_labels['Spacious_rooms'] = test_labels['area_total'] /test_labels['rooms']
+        Numerical_features.append("Spacious_rooms")
+
 
     # Split
     # TODO: dont split apartments of same building.
@@ -182,6 +191,12 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
         test_labels.drop(cat_features, inplace=True, axis=1)
     return train_labels, test_labels
 
+def oneHotFeatures(metadata, data, features):
+    values = []
+    for feature in features:
+        values.append(oneHotFeature(metadata, data, feature))
+    return values
+
 def oneHotFeature(metadata, data, feature):
     values = list(metadata.loc[metadata['name'] == feature]['cats'])[0]
     for i, value in enumerate(values):
@@ -230,6 +245,75 @@ def polar_coordinates(labels, test):
 
     return labels1_normed_r, test1_normed_r
 
+def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    # y_train is log!!
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def XGB_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            early_stopping_rounds=15,
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def custom_asymmetric_eval(y_true, y_pred):
+    loss = root_mean_squared_log_error(y_true,y_pred)
+    return "custom_asymmetric_eval", np.mean(loss), False
+
 class PrintDot(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
         if epoch % 100 == 0: print('')
@@ -273,12 +357,14 @@ def load_all_data(fraction_of_data=1, apartment_id='apartment_id'):
 
     return train, test, metaData
 
-def predict_and_store(model, test_labels, test_pd, path="default"):
+def predict_and_store(model, test_labels, test_pd, path="default", exponential=False):
     '''
         Inputs
         - test_pd needs to be the original full test dataframe
     '''
     result = model.predict(test_labels)
+    if exponential:
+        result = np.exp(result)
     submission = pd.DataFrame()
     submission['id'] = test_pd['apartment_id']
     submission['price_prediction'] = result
