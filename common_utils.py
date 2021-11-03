@@ -17,8 +17,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import StratifiedGroupKFold
-
+from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
