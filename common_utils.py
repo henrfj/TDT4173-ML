@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import shape
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -21,8 +22,8 @@ from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
-    assert (y_true >= 0).all() 
-    assert (y_pred >= 0).all()
+    #assert (y_true >= 0).all() 
+    #assert (y_pred >= 0).all()
     log_error = np.log1p(y_pred) - np.log1p(y_true)  # Note: log1p(x) = log(1 + x)
     return np.mean(log_error ** 2) ** 0.5
 
@@ -70,10 +71,12 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
     test_labels = test_labels.fillna(test_labels.mean())
 
     if one_hot_encode and len(metadata):
+        print("Laure encoding!")
         oneHotFeatures(metadata, labels, cat_features)
         oneHotFeatures(metadata, test_labels, cat_features)
 
     elif one_hot_encode:
+        print("Hot encoding")
         labels, test_labels = one_hot_encoder(labels, test_labels, cat_features, drop_old=drop_old)
 
     # Adding some new features
@@ -112,11 +115,13 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
 
     # Scale it.
     if scaler=="minMax":
+        print("minMax")
         scaler = MinMaxScaler(feature_range=(0, 1))
         train_labels_scaled = scaler.fit_transform(train_labels_n)
         val_labels_scaled = scaler.transform(val_labels_n)
         test_labels_scaled = scaler.transform(test_labels_n)
     elif scaler=="std":
+        print("Std")
         std_scale = preprocessing.StandardScaler().fit(train_labels_n)
         train_labels_scaled = std_scale.transform(train_labels_n)
         val_labels_scaled = std_scale.transform(val_labels_n)
@@ -292,17 +297,69 @@ def XGB_groupKFold(number_of_splits, model, X_train, y_train,
     for train_index, test_index in gkf.split(X_train, y_train, groups):
         X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
         y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
         model.fit(
             X_train2,
             y_train2,
             eval_set=[(X_test, y_test)],
             eval_metric=eval_metric,
-            early_stopping_rounds=15,
+            early_stopping_rounds=15,   # To not overfit
             verbose=False,
         )    
         prediction = np.exp(model.predict(X_test))
         score = root_mean_squared_log_error(prediction, np.exp(y_test))
         if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
+    ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 100
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model = create_ANN_model(*model_params)
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+
+        history = model.fit(x=X_train2, y=y_train2.values,
+          validation_data=(X_test, y_test),
+          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
+          )
+
+        prediction = model.predict(X_test)
+        score = root_mean_squared_log_error(y_test.values, prediction)
+        score2 = rmsle_custom(y_test.values, prediction)
+
+        hist = pd.DataFrame(history.history)
+        hist['epoch'] = history.epoch
+        
+        print(hist.tail(1))
+        print("Score:",score,"\t(",score2,")")
+        print("Best score:", best_score)
+        
+        if score <  best_score:
+            print("New best model!")
             best_score = score
             best_model = model
             best_index = i

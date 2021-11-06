@@ -40,7 +40,7 @@ def pre_process_numerical(features, Numerical_features, train, test,
     labels = no_outlayers[features]
     labels = labels.fillna(labels.mean())
     targets = no_outlayers['price']
-
+    
     # Test data preprocessing
     test_labels = test[features]
     test_labels = test_labels.fillna(test_labels.mean())
