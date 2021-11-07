@@ -19,6 +19,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
+from sklearn.ensemble import RandomForestRegressor
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
@@ -249,6 +250,152 @@ def polar_coordinates(labels, test):
     test1_normed_r['theta'] = np.arctan(test1_normed_r['longitude']/test1_normed_r['latitude'])
 
     return labels1_normed_r, test1_normed_r
+
+def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    # y_train is log!!
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def XGB_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            early_stopping_rounds=15,   # To not overfit
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
+    ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 100
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model = create_ANN_model(*model_params)
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+
+        history = model.fit(x=X_train2, y=y_train2.values,
+          validation_data=(X_test, y_test),
+          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
+          )
+
+        prediction = model.predict(X_test)
+        score = root_mean_squared_log_error(y_test.values, prediction)
+        score2 = rmsle_custom(y_test.values, prediction)
+
+        hist = pd.DataFrame(history.history)
+        hist['epoch'] = history.epoch
+        
+        print(hist.tail(1))
+        print("Score:",score,"\t(",score2,")")
+        print("Best score:", best_score)
+        
+        if score <  best_score:
+            print("New best model!")
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+
+def RF_groupKFold(number_of_splits, model, X_train, y_train):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+
+    best_score = 1
+    i = 0
+    best_model = model
+    best_index = 0
+
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit( X_train2, y_train2) 
+        prediction =model.predict(X_test)
+        score = root_mean_squared_log_error(prediction, y_test)
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
 
 def custom_asymmetric_eval(y_true, y_pred):
     loss = root_mean_squared_log_error(y_true,y_pred)
@@ -636,3 +783,44 @@ def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):
     return scores, np.average(scores), best_model, best_index
 
 
+def bestRFPredict(
+    train, test,
+    features = ["area_total", "latitude", "longitude", "floor", "district", "stories", 'condition']
+    ):
+    isTest = 'price' in test.colmuns
+
+    train.fillna(train.mean(), inplace = True)
+    test.fillna(test.mean(), inplace = True)
+
+    X_train, y_train = train[features], train['price']
+    X_test = test[features]
+    if isTest: y_test = test['price']
+
+    model = RandomForestRegressor(
+        n_estimators=2000,
+        max_depth=400,
+        min_samples_split=2,
+        min_samples_leaf= 2,
+        min_weight_fraction_leaf=0.00008,
+        max_features='auto',
+        max_leaf_nodes=None,
+        min_impurity_decrease=1100,
+        bootstrap=True,
+        oob_score=False,
+        n_jobs=None,
+        random_state=None,
+        verbose=0,
+        warm_start=True,
+        ccp_alpha=20000,
+        max_samples=None
+    )
+
+    if isTest:
+        model.fit(X_train, y_train)
+        y_predict = model.predict(X_test)
+        return root_mean_squared_log_error(y_predict, y_test)
+    else:
+        model.fit(X_train, y_train)
+        y_predict = model.predict(X_test)
+        return y_predict
+    
