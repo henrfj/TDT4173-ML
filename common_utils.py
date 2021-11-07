@@ -19,6 +19,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dropout
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
+from sklearn.ensemble import RandomForestRegressor
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
@@ -394,7 +395,7 @@ def RF_groupKFold(number_of_splits, model, X_train, y_train):
             best_index = i
         scores.append(score)
         i += 1
-    return scores, np.average(scores), model, best_index
+    return scores, np.average(scores), best_model, best_index
 
 def custom_asymmetric_eval(y_true, y_pred):
     loss = root_mean_squared_log_error(y_true,y_pred)
@@ -524,3 +525,44 @@ def csv_bagging(kaggle_scores, csv_paths, submission_path):
     submission.to_csv(submission_path, index=False)
 
 
+def bestRFPredict(
+    train, test,
+    features = ["area_total", "latitude", "longitude", "floor", "district", "stories", 'condition']
+    ):
+    isTest = 'price' in test.colmuns
+
+    train.fillna(train.mean(), inplace = True)
+    test.fillna(test.mean(), inplace = True)
+
+    X_train, y_train = train[features], train['price']
+    X_test = test[features]
+    if isTest: y_test = test['price']
+
+    model = RandomForestRegressor(
+        n_estimators=2000,
+        max_depth=400,
+        min_samples_split=2,
+        min_samples_leaf= 2,
+        min_weight_fraction_leaf=0.00008,
+        max_features='auto',
+        max_leaf_nodes=None,
+        min_impurity_decrease=1100,
+        bootstrap=True,
+        oob_score=False,
+        n_jobs=None,
+        random_state=None,
+        verbose=0,
+        warm_start=True,
+        ccp_alpha=20000,
+        max_samples=None
+    )
+
+    if isTest:
+        model.fit(X_train, y_train)
+        y_predict = model.predict(X_test)
+        return root_mean_squared_log_error(y_predict, y_test)
+    else:
+        model.fit(X_train, y_train)
+        y_predict = model.predict(X_test)
+        return y_predict
+    
