@@ -10,6 +10,7 @@ from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
 import lightgbm
 # Specific tf libraries
 from tensorflow.keras import backend as K
@@ -250,180 +251,6 @@ def polar_coordinates(labels, test):
     test1_normed_r['theta'] = np.arctan(test1_normed_r['longitude']/test1_normed_r['latitude'])
 
     return labels1_normed_r, test1_normed_r
-
-def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
-    eval_metric=None):  
-    # y_train is log!!
-    X_train = X_train.copy()
-    y_train = y_train.copy()
-    
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 1
-    i = 0
-    
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        model.fit(
-            X_train2,
-            y_train2,
-            eval_set=[(X_test, y_test)],
-            eval_metric=eval_metric,
-            verbose=False,
-        )    
-        prediction = np.exp(model.predict(X_test))
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
-def gradient_boost_groupKFold(number_of_splits, model, X_train, y_train):
-    X_train = X_train.copy()
-    y_train = y_train.copy()
-
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 1
-    i = 0
-
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        print('starting on split ',i+1,' of cross validation')
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        model.fit(
-            X_train2,
-            y_train2,
-        )    
-        prediction = np.exp(model.predict(X_test))
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
-def XGB_groupKFold(number_of_splits, model, X_train, y_train,
-    eval_metric=None):  
-    ''' y_train needs to be log. Model trains to predict logs now!'''
-    X_train = X_train.copy()
-    y_train = y_train.copy()
-    
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 1
-    i = 0
-    
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        
-        # We don't need it anymore.
-        X_train2 = X_train2.drop(["building_id"], axis=1)
-        X_test = X_test.drop(["building_id"], axis=1)
-        
-        model.fit(
-            X_train2,
-            y_train2,
-            eval_set=[(X_test, y_test)],
-            eval_metric=eval_metric,
-            early_stopping_rounds=15,   # To not overfit
-            verbose=False,
-        )    
-        prediction = np.exp(model.predict(X_test))
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
-def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
-    ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
-    X_train = X_train.copy()
-    y_train = y_train.copy()
-    
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 100
-    i = 0
-    
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        
-        # We don't need it anymore.
-        X_train2 = X_train2.drop(["building_id"], axis=1)
-        X_test = X_test.drop(["building_id"], axis=1)
-        
-        model = create_ANN_model(*model_params)
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
-
-        history = model.fit(x=X_train2, y=y_train2.values,
-          validation_data=(X_test, y_test),
-          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
-          )
-
-        prediction = model.predict(X_test)
-        score = root_mean_squared_log_error(y_test.values, prediction)
-        score2 = rmsle_custom(y_test.values, prediction)
-
-        hist = pd.DataFrame(history.history)
-        hist['epoch'] = history.epoch
-        
-        print(hist.tail(1))
-        print("Score:",score,"\t(",score2,")")
-        print("Best score:", best_score)
-        
-        if score <  best_score:
-            print("New best model!")
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
-
-def RF_groupKFold(number_of_splits, model, X_train, y_train):  
-    ''' y_train needs to be log. Model trains to predict logs now!'''
-    X_train = X_train.copy()
-    y_train = y_train.copy()
-    
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-
-    best_score = 1
-    i = 0
-    best_model = model
-    best_index = 0
-
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        model.fit( X_train2, y_train2) 
-        prediction =model.predict(X_test)
-        score = root_mean_squared_log_error(prediction, y_test)
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
 
 def custom_asymmetric_eval(y_true, y_pred):
     loss = root_mean_squared_log_error(y_true,y_pred)
@@ -693,123 +520,119 @@ def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), hists
 
-def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
-    eval_metric=None):  
-    # y_train is log!!
-    X_train = X_train.copy()
-    y_train = y_train.copy()
+def get_oof_rf(x_train, y_train, x_test, NFOLDS=5):
+    """
+    """
+    ntrain = x_train.shape[0]
+    ntest = x_test.shape[0]
+    groups = x_train["building_id"]
     
+    oof_train = np.zeros((ntrain,))
+    oof_test = np.zeros((ntest,))
+    oof_test_skf = np.empty((NFOLDS, ntest))
+    
+    gkf = GroupKFold(
+        n_splits=NFOLDS,
+    )
+
+
+    i=0
     scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 1
-    i = 0
     
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        model.fit(
-            X_train2,
-            y_train2,
-            eval_set=[(X_test, y_test)],
-            eval_metric=eval_metric,
-            verbose=False,
-        )    
-        prediction = np.exp(model.predict(X_test))
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
+    for train_index, test_index in gkf.split(x_train, y_train, groups):
+        x_tr, x_te = x_train.iloc[train_index], x_train.iloc[test_index]
+        y_tr, y_te = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        x_tr = x_tr.drop(["building_id"], axis=1)
+        x_te = x_te.drop(["building_id"], axis=1)
+        x_test_no_id = x_test.drop(["building_id"], axis=1)
 
-def XGB_groupKFold(number_of_splits, model, X_train, y_train,
-    eval_metric='rmse'):  
-    ''' y_train needs to be log. Model trains to predict logs now!'''
-    X_train = X_train.copy()
-    y_train = y_train.copy()
+        clf = RandomForestRegressor(
+            n_estimators=2000,
+            max_depth=400,
+            min_samples_split=2,
+            min_samples_leaf= 2,
+            min_weight_fraction_leaf=0.00008,
+            max_features='auto',
+            max_leaf_nodes=None,
+            min_impurity_decrease=1100,
+            bootstrap=True,
+            oob_score=False,
+            n_jobs=None,
+            random_state=None,
+            verbose=0,
+            warm_start=True,
+            ccp_alpha=20000,
+            max_samples=None
+        )
+
+        clf.fit(x_tr, y_tr)
+        
+        oof_train[test_index] = clf.predict(x_te)
+        oof_test_skf[i, :] = clf.predict(x_test_no_id)
+        
+        i+=1
     
+        # Just to get some idea of score
+        prediction = clf.predict(x_te)
+        score = root_mean_squared_log_error(prediction, y_te)
+        scores.append(score)
+    
+    oof_test[:] = oof_test_skf.mean(axis=0)
+    return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), scores
+
+def get_oof_knn(x_train, y_train, x_test, NFOLDS=5):
+    """
+    """
+    ntrain = x_train.shape[0]
+    ntest = x_test.shape[0]
+    groups = x_train["building_id"]
+    
+    oof_train = np.zeros((ntrain,))
+    oof_test = np.zeros((ntest,))
+    oof_test_skf = np.empty((NFOLDS, ntest))
+    
+    gkf = GroupKFold(
+        n_splits=NFOLDS,
+    )
+
+
+    i=0
     scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 1
-    i = 0
     
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+    for train_index, test_index in gkf.split(x_train, y_train, groups):
+        x_tr, x_te = x_train.iloc[train_index], x_train.iloc[test_index]
+        y_tr, y_te = y_train.iloc[train_index], y_train.iloc[test_index]
         
-        # We don't need it anymore.
-        X_train2 = X_train2.drop(["building_id"], axis=1)
-        X_test = X_test.drop(["building_id"], axis=1)
+        x_tr = x_tr.drop(["building_id"], axis=1)
+        x_te = x_te.drop(["building_id"], axis=1)
+        x_test_no_id = x_test.drop(["building_id"], axis=1)
+
+        clf = KNeighborsRegressor(
+            n_neighbors=20, 
+            weights='uniform', 
+            algorithm='ball_tree', 
+            leaf_size=30, 
+            p=1, 
+            metric='minkowski', 
+            metric_params=None, 
+            n_jobs=None
+            )
+
+        clf.fit(x_tr, y_tr)
         
-        model.fit(
-            X_train2,
-            y_train2,
-            eval_set=[(X_test, y_test)],
-            eval_metric=eval_metric,
-            early_stopping_rounds=15,   # To not overfit
-            verbose=False,
-        )    
-        prediction = np.exp(model.predict(X_test))
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
-        if score <  best_score:
-            best_score = score
-            best_model = model
-            best_index = i
+        oof_train[test_index] = clf.predict(x_te)
+        oof_test_skf[i, :] = clf.predict(x_test_no_id)
+        
+        i+=1
+    
+        # Just to get some idea of score
+        prediction = clf.predict(x_te)
+        score = root_mean_squared_log_error(prediction, y_te)
         scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
-def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
-    ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
-    X_train = X_train.copy()
-    y_train = y_train.copy()
     
-    scores = []
-    gkf = GroupKFold(n_splits=number_of_splits)
-    groups = X_train["building_id"]
-    best_score = 100
-    i = 0
-    
-    for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        
-        # We don't need it anymore.
-        X_train2 = X_train2.drop(["building_id"], axis=1)
-        X_test = X_test.drop(["building_id"], axis=1)
-        
-        model = create_ANN_model(*model_params)
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
-
-        history = model.fit(x=X_train2, y=y_train2.values,
-          validation_data=(X_test, y_test),
-          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
-          )
-
-        prediction = model.predict(X_test)
-        score = root_mean_squared_log_error(y_test.values, prediction)
-        score2 = rmsle_custom(y_test.values, prediction)
-
-        hist = pd.DataFrame(history.history)
-        hist['epoch'] = history.epoch
-        
-        print(hist.tail(1))
-        print("Score:",score,"\t(",score2,")")
-        print("Best score:", best_score)
-        
-        if score <  best_score:
-            print("New best model!")
-            best_score = score
-            best_model = model
-            best_index = i
-        scores.append(score)
-        i += 1
-    return scores, np.average(scores), best_model, best_index
-
+    oof_test[:] = oof_test_skf.mean(axis=0)
+    return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), scores
 
 def bestRFPredict(
     train, test,
@@ -851,4 +674,171 @@ def bestRFPredict(
         model.fit(X_train, y_train)
         y_predict = model.predict(X_test)
         return y_predict
+
+def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    # y_train is log!!
+    X_train = X_train.copy()
+    y_train = y_train.copy()
     
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def gradient_boost_groupKFold(number_of_splits, model, X_train, y_train):
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        print('starting on split ',i+1,' of cross validation')
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit(
+            X_train2,
+            y_train2,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def XGB_groupKFold(number_of_splits, model, X_train, y_train,
+    eval_metric=None):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            early_stopping_rounds=15,   # To not overfit
+            verbose=False,
+        )    
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
+def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
+    ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 10
+    i = 0
+    ann_scores = []
+    hists=[]
+    models=[]
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model = create_ANN_model(*model_params)
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+
+        history = model.fit(x=X_train2, y=y_train2.values,
+          validation_data=(X_test, y_test),
+          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
+          )
+
+        prediction = model.predict(X_test)
+        ann_score = history.history["val_loss"][-1]
+        ann_scores.append(ann_score)
+        hists.append(history)
+        models.append(model)
+        if ann_score <  best_score:
+            print("New best model!")
+            best_score = ann_score
+            best_model = model
+            best_index = i
+        i += 1
+    return ann_scores, models, best_model, hists
+
+def RF_groupKFold(number_of_splits, model, X_train, y_train):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+
+    best_score = 1
+    i = 0
+    best_model = model
+    best_index = 0
+
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit( X_train2, y_train2) 
+        prediction =model.predict(X_test)
+        score = root_mean_squared_log_error(prediction, y_test)
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
