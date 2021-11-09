@@ -444,7 +444,7 @@ def KNN_groupKFold(number_of_splits, model, X_train, y_train):
         y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
         model.fit( X_train2, y_train2) 
         prediction =model.predict(X_test)
-        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        score = root_mean_squared_log_error(np.exp(prediction), np.exp(y_test))
         if score <  best_score:
             best_score = score
             best_model = model
