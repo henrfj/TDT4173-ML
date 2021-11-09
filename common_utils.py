@@ -474,23 +474,42 @@ def rmsle_custom(y_true, y_pred):
     msle = tf.keras.losses.MeanSquaredLogarithmicError()
     return K.sqrt(msle(y_true, y_pred))
 
-def load_all_data(fraction_of_data=1, apartment_id='apartment_id'):
-    # Metadata
-    metaData_apartment = pd.read_json('../data/apartments_meta.json')
-    metaData_building = pd.read_json('../data/buildings_meta.json')
-    metaData = pd.concat([metaData_apartment, metaData_building])
+def load_all_data(fraction_of_data=1, apartment_id='apartment_id',path=None):
+    
+    if path is not None:
+        # Metadata
+        metaData_apartment = pd.read_json(path+'../data/apartments_meta.json')
+        metaData_building = pd.read_json(path+'../data/buildings_meta.json')
+        metaData = pd.concat([metaData_apartment, metaData_building])
 
-    # Train
-    train_apartment = pd.read_csv('../data/apartments_train.csv')
-    train_building = pd.read_csv('../data/buildings_train.csv')
+        # Train
+        train_apartment = pd.read_csv(path+'../data/apartments_train.csv')
+        train_building = pd.read_csv(path+'../data/buildings_train.csv')
+
+        # Test
+        test_apartment = pd.read_csv(path+'../data/apartments_test.csv')
+        test_building = pd.read_csv(path+'../data/buildings_test.csv')
+    
+    else:
+    # Metadata
+        metaData_apartment = pd.read_json('../data/apartments_meta.json')
+        metaData_building = pd.read_json('../data/buildings_meta.json')
+        metaData = pd.concat([metaData_apartment, metaData_building])
+
+        # Train
+        train_apartment = pd.read_csv('../data/apartments_train.csv')
+        train_building = pd.read_csv('../data/buildings_train.csv')
+
+        # Test
+        test_apartment = pd.read_csv('../data/apartments_test.csv')
+        test_building = pd.read_csv('../data/buildings_test.csv')
+  
     train = pd.merge(train_apartment, train_building, left_on='building_id', right_on='id')
     train.rename(columns={'id_x' : apartment_id}, inplace=True)
     train.drop('id_y', axis=1, inplace=True)
     train = train.head(int(train.shape[0] * fraction_of_data))
 
-    # Test
-    test_apartment = pd.read_csv('../data/apartments_test.csv')
-    test_building = pd.read_csv('../data/buildings_test.csv')
+
     test = pd.merge(test_apartment, test_building, left_on='building_id', right_on='id')
     test.rename(columns={'id_x' : apartment_id}, inplace=True)
     test.drop('id_y', axis=1, inplace=True)

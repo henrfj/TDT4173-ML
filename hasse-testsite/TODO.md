@@ -27,18 +27,11 @@ Other feature engineering:
 
 ## Models
 * Finetune models (nothing done so far)
-* Further explore other options
-    * SVR
-    * XGBoost
 * STACKING
-* CROSS VALIDATION
-* Tune models using sklearn
 
 * Other normalization?
 
 * Remove super correlated features
-
-* RSMLE
 
 * LGBM tuning
     * Regularization:
@@ -79,27 +72,19 @@ Other feature engineering:
         4. Lower the learning rate and increase the estimators proportionally to get more robust models.
 
 
-## Submissions
-
-Prepare
-* Catboost submission with 5 top features
-* Submissions with around 8-10 features
-* XGBoost submission on selected features
-* Gradient boost on carefully selected features and include new one hot encoding
-
-
 
 ## Split boosting models
 | Model          | Responsible Person          |
 | :---           |    :----:             | 
-| Catboost       | Hasse    | 
-| LightGBM       | Hasse    | 
-| Gradient Boost | Hasse    | 
-| Adaboost       |  ??   | 
+| **Catboost**       | Hasse    | 
+| **LightGBM**       | Hasse    | 
+| **Gradient Boost** | Hasse    | 
+| Adaboost       |  ??      | 
 | XGBoost        | Henrik   | 
 | SVR            | Laure    | 
 | KNN            | Laure    | 
 | Decision Tree  | Laure    | 
 | Deep NN        | Henrik   | 
+| AutoML         | Laure    | 
 
 * BAGGING in common_utils
