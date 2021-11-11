@@ -65,12 +65,12 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
 
     # Training and validation data preprocessing
     labels = no_outlayers[features]
-    labels = labels.fillna(labels.mean())
+    labels = labels.fillna(labels.median())
     targets = no_outlayers['price']
 
     # Test data preprocessing
     test_labels = test[features]
-    test_labels = test_labels.fillna(test_labels.mean())
+    test_labels = test_labels.fillna(test_labels.median())
 
     if one_hot_encode and len(metadata):
         print("Laure encoding!")
