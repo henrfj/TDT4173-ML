@@ -37,7 +37,7 @@ def categorical_to_numerical(data, features):
 def pre_process_numerical(features, numerical_features, train, test, metadata=[],
                     outliers_value=7, val_data=True, val_split=0.1, random_state=42, scaler="none",
                     add_R=False, add_rel_height=False, add_spacious=False, droptable=[],
-                    one_hot_encode=True, cat_features=[], drop_old=True):
+                    one_hot_encode=True, cat_features=[], drop_old=True,categorical_unknown=False):
     """
     Pre processes pandas dataframe, returns split datasets with preprocessing applied
     to numerical data.
@@ -66,11 +66,19 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
     # NAN PROBLEM - use mean for numerical, median for categorical.
     # Training and validation data preprocessing
     labels = no_outlayers[features]
+    test_labels = test[features]
+
+    if categorical_unknown:
+        print("nan to extra unknown category")
+        for feature in cat_features:
+            unknown_category = len(list(train[feature].unique())) - 1
+            labels[feature] = labels[feature].fillna(unknown_category)
+            test_labels[feature] = test_labels[feature].fillna(unknown_category)
+
     labels = labels.fillna(labels.median())
     targets = no_outlayers['price']
 
     # Test data preprocessing
-    test_labels = test[features]
     test_labels = test_labels.fillna(test_labels.median())
 
     if one_hot_encode and len(metadata):
@@ -973,6 +981,35 @@ def gradient_boost_groupKFold(number_of_splits, model, X_train, y_train):
         scores.append(score)
         i += 1
     return scores, np.average(scores), best_model, best_index
+
+def catboost_groupKFold(number_of_splits, model, X_train, y_train, categorical_features=[],text_features=[],random_state=1):
+    scores = []
+        
+    cv = GroupKFold(n_splits=number_of_splits)
+    
+    groups = X_train["building_id"]
+    i = 1
+    
+    for train_index, test_index in cv.split(X_train, y_train, groups):
+        print("starting on split ",i)
+        i+=1
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        X_train2.drop(['building_id'], axis=1,inplace=True)
+        X_test.drop(['building_id'], axis=1,inplace=True)
+        
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            verbose=False,
+            early_stopping_rounds=100,
+        )
+        prediction = np.exp(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        scores.append(score)
+    return scores, np.average(scores), best_model, best_index
+    
 
 def RF_groupKFold(number_of_splits, model, X_train, y_train):  
     ''' y_train needs to be log. Model trains to predict logs now!'''
