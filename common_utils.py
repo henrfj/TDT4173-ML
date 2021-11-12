@@ -1,9 +1,9 @@
 from numpy.core.fromnumeric import shape
 import pandas as pd
 import matplotlib.pyplot as plt
-import tensorflow as tf
 import numpy as np
 import random
+import tensorflow
 from collections import Counter, defaultdict
 from scipy import stats
 from sklearn import preprocessing
@@ -406,7 +406,7 @@ def polar_coordinates(labels, test):
 def custom_asymmetric_eval(y_true, y_pred):
     loss = root_mean_squared_log_error(y_true,y_pred)
     return "custom_asymmetric_eval", np.mean(loss), False
-class PrintDot(tf.keras.callbacks.Callback):
+class PrintDot(tensorflow.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
         if epoch % 100 == 0: print('')
         print('.', end='')
@@ -421,7 +421,7 @@ def plot_history(hist):
     plt.legend()
 
 def rmsle_custom(y_true, y_pred):
-    msle = tf.keras.losses.MeanSquaredLogarithmicError()
+    msle = tensorflow.keras.losses.MeanSquaredLogarithmicError()
     return K.sqrt(msle(y_true, y_pred))
 
 def load_all_data(fraction_of_data=1, apartment_id='apartment_id',path=None):
@@ -481,11 +481,11 @@ def predict_and_store(model, test_labels, test_pd, path="default", exponential=F
         raise Exception("Not enough rows submitted!")
     submission.to_csv(path, index=False)
 
-def create_ANN_model(dense_layers=[64, 64, 64], activation=tf.nn.leaky_relu,
+def create_ANN_model(dense_layers=[64, 64, 64], activation=tensorflow.nn.leaky_relu,
                      dropout=[False, False, False], dropout_rate=0.2, optimizer='adam',
                       loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True):
     # Model
-    model = tf.keras.Sequential()
+    model = tensorflow.keras.Sequential()
     for i, n in enumerate(dense_layers):
         model.add(Dense(n, activation=activation))
         if dropout[i]:
@@ -656,7 +656,7 @@ def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
     gkf = GroupKFold(
         n_splits=NFOLDS,
     )
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+    early_stop = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
     
     i=0
     hists = []
@@ -904,7 +904,7 @@ def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):
         X_test = X_test.drop(["building_id"], axis=1)
         
         model = create_ANN_model(*model_params)
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+        early_stop = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
 
         history = model.fit(x=X_train2, y=y_train2.values,
           validation_data=(X_test, y_test),
@@ -1096,3 +1096,30 @@ def plot_feature_importance(importance,names,model_type):
     plt.title(model_type + 'Feature Importance')
     plt.xlabel('FEATURE IMPORTANCE')
     plt.ylabel('FEATURE NAMES')
+def SVR_groupKFold(number_of_splits, model, X_train, y_train):  
+    ''' y_train needs to be log. Model trains to predict logs now!'''
+    X_train = X_train.copy()
+    y_train = np.log(y_train.copy())
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+
+    best_score = 1
+    i = 0
+    best_model = model
+    best_index = 0
+
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        model.fit( X_train2, y_train2) 
+        prediction =model.predict(X_test)
+        score = root_mean_squared_log_error(np.exp(prediction), np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
