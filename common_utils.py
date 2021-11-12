@@ -63,6 +63,7 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
     # Remove outlayers from training data
     no_outlayers = train[(np.abs(stats.zscore(train['price'])) < outliers_value)]
 
+    # NAN PROBLEM - use mean for numerical, median for categorical.
     # Training and validation data preprocessing
     labels = no_outlayers[features]
     test_labels = test[features]
@@ -163,6 +164,146 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
     else:
         return train_labels, train_targets, test_labels
 
+def pre_process_2(train, test, 
+                    features, float_numerical_features, int_numerical_features, cat_features, 
+                    metadata=[], scaler="none", common_mean=True, professor_laures_fillna=False,
+                    add_R=False, add_rel_height=False, add_spacious=False,
+                    droptable=[], one_hot_encode=True, drop_old=True):
+    """
+    TODO: more outlayer detection?
+    """
+    float_numerical_features = float_numerical_features.copy()
+    int_numerical_features = int_numerical_features.copy()
+    all_numerical_features = float_numerical_features + int_numerical_features
+
+    train_labels = train[features]
+    test_labels = test[features]
+    train_targets = train['price']
+    
+    if professor_laures_fillna:
+        # Fill missing values based on heavy correlation
+        # area_living
+        train_labels = fillnaReg(train_labels, ['area_total'], 'area_living')
+        test_labels = fillnaReg(test_labels, ['area_total'], 'area_living')
+        # area_kitchen
+        train_labels = fillnaReg(train_labels, ['area_total', 'area_living'], 'area_kitchen')
+        test_labels = fillnaReg(test_labels, ['area_total', 'area_living'], 'area_kitchen')
+    
+    if not common_mean:
+        # Train data preprocessing
+        # Float
+        train_labels[float_numerical_features] = train_labels[float_numerical_features].fillna(train_labels[float_numerical_features].mean())
+        # Int
+        train_labels[int_numerical_features] = train_labels[int_numerical_features].fillna(train_labels[int_numerical_features].median())
+        # Cat
+        train_labels[cat_features] = train_labels[cat_features].fillna(train_labels[cat_features].median())
+        # Bool (The rest)
+        train_labels = train_labels.fillna(train_labels.median()) # Boolean
+
+        # Test data preprocessing
+        # Float
+        test_labels[float_numerical_features] = test_labels[float_numerical_features].fillna(test_labels[float_numerical_features].mean())
+        # Int
+        test_labels[int_numerical_features] = test_labels[int_numerical_features].fillna(test_labels[int_numerical_features].median())
+        # Cat
+        test_labels[cat_features] = test_labels[cat_features].fillna(test_labels[cat_features].median())
+        # Bool (The rest)
+        test_labels = test_labels.fillna(test_labels.median()) # Boolean
+    else:
+        # FLOAT
+        train_float_mean = train_labels[float_numerical_features].mean()
+        test_float_mean = test_labels[float_numerical_features].mean()
+        tl = len(train_labels) + len(test_labels)
+        total_mean = (train_float_mean*len(train_labels) + test_float_mean*len(test_labels)) / tl
+        # Int
+        int_median = train_labels[int_numerical_features].median()
+        # Cat
+        cat_median = train_labels[cat_features].median()
+        # Bool (The rest)
+        bool_median = train_labels.median()
+        # Train
+        # Float
+        train_labels[float_numerical_features] = train_labels[float_numerical_features].fillna(total_mean)
+        # Int
+        train_labels[int_numerical_features] = train_labels[int_numerical_features].fillna(int_median)
+        # Cat
+        train_labels[cat_features] = train_labels[cat_features].fillna(cat_median)
+        # Bool (The rest)
+        train_labels = train_labels.fillna(bool_median) 
+
+        # TEST
+        # Float
+        test_labels[float_numerical_features] = test_labels[float_numerical_features].fillna(total_mean)
+        # Int
+        test_labels[int_numerical_features] = test_labels[int_numerical_features].fillna(int_median)
+        # Cat
+        test_labels[cat_features] = test_labels[cat_features].fillna(cat_median)
+        # Bool (The rest)
+        test_labels = test_labels.fillna(bool_median) 
+
+
+
+    if one_hot_encode and len(metadata):
+        print("Laure encoding!")
+        oneHotFeatures(metadata, train_labels, cat_features)
+        oneHotFeatures(metadata, test_labels, cat_features)
+
+    elif one_hot_encode:
+        print("Hot encoding")
+        train_labels, test_labels = one_hot_encoder(train_labels, test_labels, cat_features, drop_old=drop_old)
+
+    # Adding some new features
+    # ADD R
+    if add_R:
+        train_labels, test_labels = polar_coordinates(train_labels, test_labels)
+        all_numerical_features.append("r")
+        float_numerical_features.append("r")
+    # ADD rel_height
+    if add_rel_height:
+        train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
+        test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+        all_numerical_features.append("rel_height")
+        float_numerical_features.append("rel_height")
+    if add_spacious:
+        train_labels['Spacious_rooms'] = train_labels['area_total'] /train_labels['rooms']
+        test_labels['Spacious_rooms'] = test_labels['area_total'] /test_labels['rooms']
+        all_numerical_features.append("Spacious_rooms")
+        float_numerical_features.append("Spacious_rooms")
+
+
+    # Only normalize/scale the numerical data. Categorical data is kept as is.
+    train_labels_n = train_labels.filter(float_numerical_features)
+    test_labels_n = test_labels.filter(float_numerical_features)
+
+    # Scale it.
+    if scaler=="minMax":
+        print("minMax")
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        train_labels_scaled = scaler.fit_transform(train_labels_n)
+        test_labels_scaled = scaler.transform(test_labels_n)
+    elif scaler=="std":
+        print("Std")
+        std_scale = preprocessing.StandardScaler().fit(train_labels_n)
+        train_labels_scaled = std_scale.transform(train_labels_n)
+        test_labels_scaled = std_scale.transform(test_labels_n)
+    elif scaler=="none":
+        train_labels_scaled = train_labels_n
+        test_labels_scaled = test_labels_n
+    else:
+        assert ValueError, "Incorrect scaler"
+
+    # Re-enter proceedure
+    training_norm_col = pd.DataFrame(train_labels_scaled, index=train_labels_n.index, columns=train_labels_n.columns) 
+    train_labels.update(training_norm_col)
+
+    testing_norm_col = pd.DataFrame(test_labels_scaled, index=test_labels_n.index, columns=test_labels_n.columns) 
+    test_labels.update(testing_norm_col)
+
+    # Drop the most correlated features.
+    train_labels.drop(droptable, inplace=True, axis=1)
+    test_labels.drop(droptable, inplace=True, axis=1)
+
+    return train_labels, train_targets, test_labels
 
 def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
     '''
