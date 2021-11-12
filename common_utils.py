@@ -847,6 +847,7 @@ def catboost_groupKFold(number_of_splits, model, X_train, y_train, categorical_f
     cv = GroupKFold(n_splits=number_of_splits)
     
     groups = X_train["building_id"]
+    best_score = 1
     i = 1
     
     for train_index, test_index in cv.split(X_train, y_train, groups):
@@ -866,9 +867,13 @@ def catboost_groupKFold(number_of_splits, model, X_train, y_train, categorical_f
         )
         prediction = np.exp(model.predict(X_test))
         score = root_mean_squared_log_error(prediction, np.exp(y_test))
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
         scores.append(score)
     return scores, np.average(scores), best_model, best_index
-    
+
 
 def RF_groupKFold(number_of_splits, model, X_train, y_train):  
     ''' y_train needs to be log. Model trains to predict logs now!'''
