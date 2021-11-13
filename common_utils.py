@@ -166,8 +166,8 @@ def pre_process_numerical(features, numerical_features, train, test, metadata=[]
 
 def pre_process_2(train, test, 
                     features, float_numerical_features, int_numerical_features, cat_features, 
-                    metadata=[], scaler="none", common_mean=True, professor_laures_fillna=False,
-                    add_R=False, add_rel_height=False, add_spacious=False,
+                    metadata=[], scaler="none", common_mean=True, professor_laures_fillna=False, log_it=[],
+                    log_target=False, add_R=False, add_rel_height=False, add_spacious=False,
                     droptable=[], one_hot_encode=True, drop_old=True):
     """
     TODO: more outlayer detection?
@@ -179,13 +179,13 @@ def pre_process_2(train, test,
     train_labels = train[features]
     test_labels = test[features]
     train_targets = train['price']
-    
+
     if professor_laures_fillna:
         # Fill missing values based on heavy correlation
         # area_living
         train_labels = fillnaReg(train_labels, ['area_total'], 'area_living')
         test_labels = fillnaReg(test_labels, ['area_total'], 'area_living')
-        # area_kitchen
+        # area_kitchen 
         train_labels = fillnaReg(train_labels, ['area_total', 'area_living'], 'area_kitchen')
         test_labels = fillnaReg(test_labels, ['area_total', 'area_living'], 'area_kitchen')
     
@@ -221,6 +221,7 @@ def pre_process_2(train, test,
         cat_median = train_labels[cat_features].median()
         # Bool (The rest)
         bool_median = train_labels.median()
+        
         # Train
         # Float
         train_labels[float_numerical_features] = train_labels[float_numerical_features].fillna(total_mean)
@@ -241,6 +242,26 @@ def pre_process_2(train, test,
         # Bool (The rest)
         test_labels = test_labels.fillna(bool_median) 
 
+    if test_labels.isna().sum().sum():
+        print("Test!")
+        raise ValueError
+    if train_labels.isna().sum().sum():
+        print("TRAIN!")
+        raise ValueError        
+
+    if log_it:
+        for feature in log_it:
+            # In case any features has 0, or negative numbers in them
+            remove_zero = [row[feature] if row[feature] >= 1 else 1 for _, row in train_labels.iterrows()] 
+            train_labels[feature] = remove_zero
+            remove_zero = [row[feature] if row[feature] >= 1 else 1 for _, row in test_labels.iterrows()] 
+            test_labels[feature] = remove_zero
+            # Logging
+            train_labels[feature] = np.log(train_labels[feature])
+            test_labels[feature] = np.log(test_labels[feature])
+
+    if log_target:
+        train_targets = np.log(train_targets)
 
 
     if one_hot_encode and len(metadata):
