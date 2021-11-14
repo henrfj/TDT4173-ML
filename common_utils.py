@@ -1295,14 +1295,13 @@ def feature_engineering(train_labels, test_labels,
     added_features = []
     # Add R and theta
     train_labels, test_labels = polar_coordinates(train_labels, test_labels)
-    float_numerical_features.append("r")
     added_features.append("r")
     added_features.append("theta")
 
-    # ADD rel_height of apartment
-    train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
-    test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
-    added_features.append('rel_height')
+    # ADD rel_height of apartment - not good
+    #train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
+    #test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+    #added_features.append('rel_height')
 
     # Add "Spacious_rooms": area per room
     train_labels['spacious_rooms'] = train_labels['area_total'] / train_labels['rooms']
@@ -1317,9 +1316,9 @@ def feature_engineering(train_labels, test_labels,
     added_features.append("actually_new")
 
     ### Testing some new ideas!
-    train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
-    test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
-    added_features.append("rel_kitchen")
+    #train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
+    #test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
+    #added_features.append("rel_kitchen")
 
     train_labels["rel_living"] = train_labels["area_living"] / train_labels["area_total"]
     test_labels["rel_living"] = test_labels["area_living"] / test_labels["area_total"]
@@ -1328,6 +1327,21 @@ def feature_engineering(train_labels, test_labels,
     train_labels["total_bathrooms"] = train_labels["bathrooms_private"] + train_labels["bathrooms_shared"]
     test_labels["total_bathrooms"] = test_labels["bathrooms_private"] + test_labels["bathrooms_shared"]
     added_features.append("total_bathrooms")
+
+    # Some other ones...
+    #
+    train_labels["multiple_balconies"] = (train_labels["balconies"]>1)
+    test_labels["multiple_balconies"] = (test_labels["balconies"]>1)
+
+    added_features.append("multiple_balconies")
+    #
+    train_labels["multiple_loggias"] = (train_labels["loggias"]>1)
+    test_labels["multiple_loggias"] = (test_labels["loggias"]>1)
+    added_features.append("multiple_loggias")
+    #
+    train_labels["both_windows"] = (train_labels["windows_court"]==True) & (train_labels["windows_street"]==True)
+    test_labels["both_windows"] = (test_labels["windows_court"]==True) & (test_labels["windows_street"]==True)
+    added_features.append("both_windows")
 
     return train_labels, test_labels, added_features
 
