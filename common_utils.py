@@ -1118,7 +1118,7 @@ def plot_feature_importance(importance,names,model_type):
     fi_df.sort_values(by=['feature_importance'], ascending=False,inplace=True)
     
     #Define size of bar plot
-    plt.figure(figsize=(10,8))
+    plt.figure(figsize=(10,20))
     #Plot Searborn bar chart
     sns.barplot(x=fi_df['feature_importance'], y=fi_df['feature_names'])
     #Add chart labels
