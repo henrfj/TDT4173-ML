@@ -1167,7 +1167,14 @@ def closest_district(lat, long, district_centre_long, district_centre_lat):
 def clean_data(train, test,
                  features, float_numerical_features, int_numerical_features, cat_features,
                  log_targets=True, log_area=True, fillNan=True):
-    '''Clean the data according to best knowledge so far...'''
+    '''Clean the data according to best knowledge so far...
+        TODO - Outlier removal from train
+        TODO - fix the straight lines in area plots.
+    
+    '''
+
+
+
     # Extract
     train_labels = train[features]
     test_labels = test[features]
@@ -1178,7 +1185,7 @@ def clean_data(train, test,
         train_targets = np.log(train_targets)
 
     ## ------------------------------------------------------------------------------------------------ ##
-    # TODO: Shoul we use thise at all
+    # TODO: Shoul we use thise at all?
     # Fill nans using correlated features
     train_labels = fillnaReg(train_labels, ['area_total'], 'area_living')
     test_labels = fillnaReg(test_labels, ['area_total'], 'area_living')
