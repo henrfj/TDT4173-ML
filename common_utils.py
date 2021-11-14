@@ -22,7 +22,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 from sklearn.ensemble import RandomForestRegressor
 
+import math
 import seaborn as sns
+import xgboost
 
 def root_mean_squared_log_error(y_true, y_pred):
     # Alternatively: sklearn.metrics.mean_squared_log_error(y_true, y_pred) ** 0.5
@@ -866,7 +868,7 @@ def bestRFPredict(
         y_predict = model.predict(X_test)
         return y_predict
 
-def XGB_groupKFold(number_of_splits, model, X_train, y_train,
+def XGB_groupKFold(number_of_splits, model_params, X_train, y_train,
     eval_metric=None):  
     ''' y_train needs to be log. Model trains to predict logs now!'''
     X_train = X_train.copy()
@@ -877,7 +879,7 @@ def XGB_groupKFold(number_of_splits, model, X_train, y_train,
     groups = X_train["building_id"]
     best_score = 1
     i = 0
-    
+    models=[]
     for train_index, test_index in gkf.split(X_train, y_train, groups):
         X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
         y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
@@ -886,6 +888,10 @@ def XGB_groupKFold(number_of_splits, model, X_train, y_train,
         X_train2 = X_train2.drop(["building_id"], axis=1)
         X_test = X_test.drop(["building_id"], axis=1)
         
+        model = xgboost.XGBRegressor(
+            max_depth=model_params[0], min_child_weight=model_params[1], gamma=model_params[2], subsample=model_params[3], colsample_bytree=model_params[4],
+             reg_alpha=model_params[5], reg_lambda=model_params[6], learning_rate=model_params[7], n_estimators=model_params[8])
+
         model.fit(
             X_train2,
             y_train2,
@@ -902,7 +908,8 @@ def XGB_groupKFold(number_of_splits, model, X_train, y_train,
             best_index = i
         scores.append(score)
         i += 1
-    return scores, np.average(scores), best_model, best_index
+        models.append(model)
+    return scores, np.average(scores), best_model, models
 
 def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
     ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
@@ -1144,3 +1151,123 @@ def SVR_groupKFold(number_of_splits, model, X_train, y_train):
         scores.append(score)
         i += 1
     return scores, np.average(scores), best_model, best_index
+
+def closest_district(lat, long, district_centre_long, district_centre_lat):
+    best_distance = -1
+    closest_dist = -1
+    for i in range(len(district_centre_long)):
+        long_dist =  district_centre_long[i][0]
+        lat_dist = district_centre_lat[i][0]
+        total_dist = np.sqrt((long-long_dist)**2 + (lat-lat_dist)**2)
+        if total_dist < best_distance or best_distance==-1:
+            best_distance = total_dist
+            closest_dist = i
+    return closest_dist
+
+def clean_data(train, test,
+                 features, float_numerical_features, int_numerical_features, cat_features,
+                 log_targets=True, log_area=True, fillNan=True):
+    '''Clean the data according to best knowledge so far...'''
+    # Extract
+    train_labels = train[features]
+    test_labels = test[features]
+    train_targets = train['price']
+
+    # Log targets
+    if log_targets:
+        train_targets = np.log(train_targets)
+
+    ## ------------------------------------------------------------------------------------------------ ##
+    # TODO: Shoul we use thise at all
+    # Fill nans using correlated features
+    train_labels = fillnaReg(train_labels, ['area_total'], 'area_living')
+    test_labels = fillnaReg(test_labels, ['area_total'], 'area_living')
+    # Area_kitchen
+    train_labels = fillnaReg(train_labels, ['area_total', 'area_living'], 'area_kitchen')
+    test_labels = fillnaReg(test_labels, ['area_total', 'area_living'], 'area_kitchen')
+    # ceiling
+    is_outlier = ((train_labels["ceiling"] > 10) | (train_labels["ceiling"] < 0.5))
+    outliers = train_labels.copy()[is_outlier]
+    inliers_index=[]
+    for index in train_labels.index:
+        if index not in outliers.index:
+            inliers_index.append(index)
+    train_labels.loc[outliers.index,['ceiling']] = train_labels.loc[inliers_index,['ceiling']].mean()
+
+    is_outlier = ((test_labels["ceiling"] > 10) | (test_labels["ceiling"] < 0.5))
+    outliers = test_labels.copy()[is_outlier]
+    for index in test_labels.index:
+        if index not in outliers.index:
+            inliers_index.append(index)
+    test_labels.loc[outliers.index,['ceiling']] = test_labels.loc[test_labels.index.intersection(inliers_index),['ceiling']].mean()
+
+    ## ------------------------------------------------------------------------------------------------ ##
+
+    # Remove zero area living
+    remove_zero = [row["area_living"] if row["area_living"] >= 1 else row["area_total"]*(train_labels["area_living"].mean() / train_labels["area_total"].mean()) for _, row in train_labels.iterrows()] 
+    train_labels["area_living"] = remove_zero
+
+    remove_zero = [row["area_living"] if row["area_living"] >= 1 else row["area_total"]*(test_labels["area_living"].mean() / test_labels["area_total"].mean()) for _, row in test_labels.iterrows()] 
+    test_labels["area_living"] = remove_zero
+
+    # Log the areas
+    if log_area:
+        fs = ["area_total", "area_living", "area_kitchen"]
+        for feature in fs:
+            # Logging
+            train_labels[feature] = np.log(train_labels[feature])
+            test_labels[feature] = np.log(test_labels[feature])
+
+
+    # Fillnans of the two lat/log.
+    # Insert median district
+    unknown_index = test_labels[["district", "latitude", "longitude"]][test_labels["latitude"].isna()==True].index
+    test_labels.loc[unknown_index,['district']] = test_labels["district"].median()
+    # Mean the long/lat
+    test_labels["longitude"] = test_labels["longitude"].fillna(test_labels["longitude"].mean())
+    test_labels["latitude"] = test_labels["latitude"].fillna(test_labels["latitude"].mean())
+
+    # Fix houses on the north pole
+    is_outlier = (test_labels["longitude"] > 39) | (test_labels["longitude"] < 35)
+    outliers = test_labels.copy()[is_outlier]
+    north_pole_index = outliers.index
+    test_labels.loc[north_pole_index,['longitude']] = train_labels["longitude"].mean()
+    test_labels.loc[north_pole_index,['latitude']] = train_labels["latitude"].mean()
+
+    
+    # Fill districts using long/lat
+    district_centre_long = np.array(train_labels[["district", "longitude"]].groupby(['district']).mean())
+    district_centre_lat = np.array(train_labels[["district", "latitude"]].groupby(['district']).mean())
+    remove_nan_districts = [closest_district(row["latitude"],
+     row["longitude"], district_centre_long, district_centre_lat) if math.isnan(row["district"]) else row["district"] for _, row in train_labels.iterrows()] 
+    train_labels["district"] = remove_nan_districts
+    remove_nan_districts = [closest_district(row["latitude"],
+     row["longitude"], district_centre_long, district_centre_lat) if math.isnan(row["district"]) else row["district"] for _, row in test_labels.iterrows()] 
+    test_labels["district"] = remove_nan_districts
+
+    # Fix the seller with unknown category
+    unknown_category = len(list(train_labels["seller"].unique())) - 1
+    train_labels["seller"] = train_labels["seller"].fillna(unknown_category)
+    test_labels["seller"] = test_labels["seller"].fillna(unknown_category)
+    ## --------------------------------------------------------------------------------------------------------------- ##
+    if fillNan:
+        # Fill rest with median or mean
+        # Float
+        train_labels[float_numerical_features] = train_labels[float_numerical_features].fillna(train_labels[float_numerical_features].mean())
+        # Int
+        train_labels[int_numerical_features] = train_labels[int_numerical_features].fillna(train_labels[int_numerical_features].median())
+        # Cat
+        train_labels[cat_features] = train_labels[cat_features].fillna(train_labels[cat_features].median())
+        # Bool (The rest)
+        train_labels = train_labels.fillna(train_labels.median()) # Boolean
+
+        # Float
+        test_labels[float_numerical_features] = test_labels[float_numerical_features].fillna(test_labels[float_numerical_features].mean())
+        # Int
+        test_labels[int_numerical_features] = test_labels[int_numerical_features].fillna(test_labels[int_numerical_features].median())
+        # Cat
+        test_labels[cat_features] = test_labels[cat_features].fillna(test_labels[cat_features].median())
+        # Bool (The rest)
+        test_labels = test_labels.fillna(test_labels.median()) # Boolean
+
+    return train_labels, train_targets, test_labels
