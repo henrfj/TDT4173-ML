@@ -505,8 +505,9 @@ def predict_and_store(model, test_labels, test_pd, path="default", exponential=F
     submission.to_csv(path, index=False)
 
 def create_ANN_model(dense_layers=[64, 64, 64], activation=tensorflow.nn.leaky_relu,
-                     dropout=[False, False, False], dropout_rate=0.2, optimizer='adam',
-                      loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True):
+                     dropout=[False, False, False], dropout_rate=0.2, optimizer=Adam, #'adamn'
+                      loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True,
+                      lr=0.001):
     # Model
     model = tensorflow.keras.Sequential()
     for i, n in enumerate(dense_layers):
@@ -515,12 +516,12 @@ def create_ANN_model(dense_layers=[64, 64, 64], activation=tensorflow.nn.leaky_r
             model.add(Dropout(dropout_rate))
     
     if output_activation:
-        model.add(Dense(1, activation=activation))
+        model.add(Dense(1, activation=tensorflow.nn.relu))
     else:
         model.add(Dense(1)) #Output
 
     # Optimized for reducing msle loss.
-    model.compile(optimizer=optimizer, 
+    model.compile(optimizer=optimizer(learning_rate=lr), 
                 loss=loss_function, #'msle', 'rmse', RMSLETF, rmsle_custom
                 metrics=metrics) # metrics=['mse', 'msle'] metrics=[tf.keras.metrics.Accuracy()]
 
@@ -1225,6 +1226,13 @@ def clean_data(train, test,
             train_labels[feature] = np.log(train_labels[feature])
             test_labels[feature] = np.log(test_labels[feature])
 
+    remove_upper_stripe = [row["area_living"] if row["area_living"] < row["area_total"] else row["area_total"]*(train_labels["area_living"].mean() / train_labels["area_total"].mean()) for _, row in train_labels.iterrows()] 
+    train_labels["area_living"] = remove_upper_stripe
+
+    remove_upper_stripe = [row["area_living"] if row["area_living"] < row["area_total"] else row["area_total"]*(test_labels["area_living"].mean() / test_labels["area_total"].mean()) for _, row in test_labels.iterrows()] 
+    test_labels["area_living"] = remove_upper_stripe
+    ## ------------------------------------------------------------------------------------------------ ##
+
 
     # Fillnans of the two lat/log.
     # Insert median district
@@ -1278,3 +1286,75 @@ def clean_data(train, test,
         test_labels = test_labels.fillna(test_labels.median()) # Boolean
 
     return train_labels, train_targets, test_labels
+
+def feature_engineering(train_labels, test_labels,
+                        float_numerical_features=[], int_numerical_features=[],
+                        cat_features =[]
+                        ):
+
+    added_features = []
+    # Add R and theta
+    train_labels, test_labels = polar_coordinates(train_labels, test_labels)
+    float_numerical_features.append("r")
+    added_features.append("r")
+    added_features.append("theta")
+
+    # ADD rel_height of apartment
+    train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
+    test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+    added_features.append('rel_height')
+
+    # Add "Spacious_rooms": area per room
+    train_labels['spacious_rooms'] = train_labels['area_total'] / train_labels['rooms']
+    test_labels['spacious_rooms'] = test_labels['area_total'] / test_labels['rooms']
+    added_features.append('spacious_rooms')
+
+    # Newly_built
+    is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in train_labels.iterrows()] 
+    train_labels["actually_new"] = is_new
+    is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in test_labels.iterrows()] 
+    test_labels["actually_new"] = is_new
+    added_features.append("actually_new")
+
+    ### Testing some new ideas!
+    train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
+    test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
+    added_features.append("rel_kitchen")
+
+    train_labels["rel_living"] = train_labels["area_living"] / train_labels["area_total"]
+    test_labels["rel_living"] = test_labels["area_living"] / test_labels["area_total"]
+    added_features.append("rel_living")
+        
+    train_labels["total_bathrooms"] = train_labels["bathrooms_private"] + train_labels["bathrooms_shared"]
+    test_labels["total_bathrooms"] = test_labels["bathrooms_private"] + test_labels["bathrooms_shared"]
+    added_features.append("total_bathrooms")
+
+    return train_labels, test_labels, added_features
+
+def normalize(train_labels, test_labels, features, scaler="minMax"):
+    # Only normalize/scale the numerical data. Categorical data is kept as is.
+    train_labels_n = train_labels.filter(features)
+    test_labels_n = test_labels.filter(features)
+
+    # Scale it.
+    if scaler=="minMax":
+        print("minMax")
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        train_labels_scaled = scaler.fit_transform(train_labels_n)
+        test_labels_scaled = scaler.transform(test_labels_n)
+    elif scaler=="std":
+        print("Std")
+        std_scale = preprocessing.StandardScaler().fit(train_labels_n)
+        train_labels_scaled = std_scale.transform(train_labels_n)
+        test_labels_scaled = std_scale.transform(test_labels_n)
+    else:
+        assert ValueError, "Incorrect scaler"
+
+    # Re-enter proceedure
+    training_norm_col = pd.DataFrame(train_labels_scaled, index=train_labels_n.index, columns=train_labels_n.columns) 
+    train_labels.update(training_norm_col)
+
+    testing_norm_col = pd.DataFrame(test_labels_scaled, index=test_labels_n.index, columns=test_labels_n.columns) 
+    test_labels.update(testing_norm_col)
+
+    return train_labels, test_labels
