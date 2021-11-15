@@ -6,3 +6,5 @@ sklearn
 jupyter
 jupyterlab
 seaborn
+xgboots
+lightgbm
