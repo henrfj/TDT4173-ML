@@ -664,6 +664,49 @@ def get_oof_lgbm(clf, x_train, y_train, x_test, NFOLDS=5, eval_metric=custom_asy
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), scores
 
+def get_oof_gradientboost(clf, x_train, y_train, x_test, NFOLDS=5):
+    """
+    NB! y should be logarithm of price. Will also predict the log.
+    """
+    ntrain = x_train.shape[0]
+    ntest = x_test.shape[0]
+    groups = x_train["building_id"]
+    
+    oof_train = np.zeros((ntrain,))
+    oof_test = np.zeros((ntest,))
+    oof_test_skf = np.empty((NFOLDS, ntest))
+    
+    gkf = GroupKFold(
+        n_splits=NFOLDS,
+    )
+    
+    i=0
+    scores = []
+
+    for train_index, test_index in gkf.split(x_train, y_train, groups):
+        x_tr, x_te = x_train.iloc[train_index], x_train.iloc[test_index]
+        y_tr, y_te = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        x_tr = x_tr.drop(["building_id"], axis=1)
+        x_te = x_te.drop(["building_id"], axis=1)
+        x_test_no_id = x_test.drop(["building_id"], axis=1)
+        
+        clf.fit(x_tr, y_tr,
+               )
+        
+        oof_train[test_index] = clf.predict(x_te)
+        oof_test_skf[i, :] = clf.predict(x_test_no_id)
+        
+        i+=1
+
+        # Just to get some idea of score
+        prediction = clf.predict(x_te)
+        score = root_mean_squared_log_error(np.exp(prediction), np.exp(y_te))
+        scores.append(score)
+
+    oof_test[:] = oof_test_skf.mean(axis=0)
+    return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), scores
+
 def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
     """
     Popular function on Kaggle. Adapted for ANN.
