@@ -404,19 +404,37 @@ def get_cat_and_non_cat_data(metadata):
         else: nonCategorical.append(feature['name'])
     return nonCategorical, categorical
 
-def polar_coordinates(labels, test):
+def polar_coordinates(train_labels, test_labels, use_city_centre=False):
     '''
     labels and input labels. Adds theta and also R to the dataframe copy.
     '''
-    # Make a copy
-    labels1_normed_r = labels.copy()
-    test1_normed_r = test.copy()
+    # Make a copy to manipulate
+    labels1_normed_r = train_labels[["latitude", "longitude"]].copy()
+    test1_normed_r = test_labels[["latitude", "longitude"]].copy()
 
-    # Move origo to centre
-    labels1_normed_r['latitude'] = labels1_normed_r['latitude'] - labels1_normed_r['latitude'].mean()
-    labels1_normed_r['longitude'] = labels1_normed_r['longitude'] - labels1_normed_r['longitude'].mean()
-    test1_normed_r['latitude'] = test1_normed_r['latitude'] -  test1_normed_r['latitude'].mean()
-    test1_normed_r['longitude'] = test1_normed_r['longitude'] -  test1_normed_r['longitude'].mean()
+    # City centre 55.755833, 37.617222 (lat/long)
+    # Instead of mean, use city centre: 
+    if use_city_centre:
+        labels1_normed_r['latitude'] = labels1_normed_r['latitude'] - 55.755833
+        labels1_normed_r['longitude'] = labels1_normed_r['longitude'] - 37.617222
+        test1_normed_r['latitude'] = test1_normed_r['latitude'] -  55.755833
+        test1_normed_r['longitude'] = test1_normed_r['longitude'] -  37.617222
+    else: # just use means
+        # FLOAT
+        train_float_mean = train_labels["longitude"].mean()
+        test_float_mean = test_labels["longitude"].mean()
+        tl = len(train_labels) + len(test_labels)
+        total_mean_long = (train_float_mean*len(train_labels) + test_float_mean*len(test_labels)) / tl
+
+        train_float_mean = train_labels["latitude"].mean()
+        test_float_mean = test_labels["latitude"].mean()
+        tl = len(train_labels) + len(test_labels)
+        total_mean_lat = (train_float_mean*len(train_labels) + test_float_mean*len(test_labels)) / tl 
+
+        labels1_normed_r['latitude'] = labels1_normed_r['latitude'] - total_mean_lat
+        labels1_normed_r['longitude'] = labels1_normed_r['longitude'] - total_mean_long
+        test1_normed_r['latitude'] = test1_normed_r['latitude'] -  total_mean_lat
+        test1_normed_r['longitude'] = test1_normed_r['longitude'] -  total_mean_long
 
     # Convert to polar coordinates
     labels1_normed_r['r'] =  np.sqrt(labels1_normed_r['latitude']**2 + labels1_normed_r['longitude']**2)
@@ -424,7 +442,13 @@ def polar_coordinates(labels, test):
     test1_normed_r['r'] =  np.sqrt(test1_normed_r['latitude']**2 + test1_normed_r['longitude']**2)
     test1_normed_r['theta'] = np.arctan(test1_normed_r['longitude']/test1_normed_r['latitude'])
 
-    return labels1_normed_r, test1_normed_r
+    # Add polar coordinates
+    train_labels["r"] = labels1_normed_r['r']
+    train_labels["theta"] = labels1_normed_r['theta']
+    test_labels["r"] = test1_normed_r['r']
+    test_labels["theta"] = test1_normed_r['theta']
+
+    return train_labels, test_labels
 
 def custom_asymmetric_eval(y_true, y_pred):
     loss = root_mean_squared_log_error(y_true,y_pred)
@@ -992,7 +1016,6 @@ def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):
             print("New best model!")
             best_score = ann_score
             best_model = model
-            best_index = i
         i += 1
     return ann_scores, models, best_model, hists
 
@@ -1331,9 +1354,7 @@ def clean_data(train, test,
     return train_labels, train_targets, test_labels
 
 def feature_engineering(train_labels, test_labels,
-                        float_numerical_features=[], int_numerical_features=[],
-                        cat_features =[]
-                        ):
+    add_dist_to_metro=False):
 
     added_features = []
     # Add R and theta
@@ -1386,6 +1407,52 @@ def feature_engineering(train_labels, test_labels,
     test_labels["both_windows"] = (test_labels["windows_court"]==True) & (test_labels["windows_street"]==True)
     added_features.append("both_windows")
 
+    if add_dist_to_metro:
+        # Get station data
+        stations = pd.read_excel("metro_stations.xlsx")
+        longs = np.zeros(len(stations))
+        lats = np.zeros(len(stations))
+        for i, row in stations.iterrows():
+            l = str(row["Coordinates"]).split(",")
+            longs[i] = l[0]
+            lats[i] = l[1]
+        stations["longitude"] = longs
+        stations["latitude"] = lats
+
+        ## Distance to nearest metro stations
+        dist_to_metro = np.zeros(len(train_labels))
+        for i, row_t in train_labels.iterrows():
+            print(".", end="")
+            apartment = (row_t["longitude"], row_t["latitude"])
+            nearest_dist = -1
+            for j, row_s in stations.iterrows():
+                station = (row_s["longitude"], row_s["latitude"]) 
+                distance = eucledian_distance(station, apartment)
+                if distance < nearest_dist or nearest_dist==-1:
+                    nearest_dist=distance
+            
+            dist_to_metro[i] = nearest_dist
+        train_labels["dist_to_metro"] = dist_to_metro
+        train_labels["dist_to_metro_in_meters"] = train_labels["dist_to_metro"] * (2*np.pi*(6371000) / 360)
+        
+        ## Distance to nearest metro stations
+        dist_to_metro = np.zeros(len(test_labels))
+        for i, row_t in test_labels.iterrows():
+            print(".", end="")
+            apartment = (row_t["longitude"], row_t["latitude"])
+            nearest_dist = -1
+            for j, row_s in stations.iterrows():
+                station = (row_s["longitude"], row_s["latitude"]) 
+                distance = eucledian_distance(station, apartment)
+                if distance < nearest_dist or nearest_dist==-1:
+                    nearest_dist=distance
+            
+            dist_to_metro[i] = nearest_dist
+        test_labels["dist_to_metro"] = dist_to_metro
+        test_labels["dist_to_metro_in_meters"] = test_labels["dist_to_metro"] * (2*np.pi*(6371000) / 360)
+        added_features.append("dist_to_metro")
+        added_features.append("dist_to_metro_in_meters")
+
     return train_labels, test_labels, added_features
 
 def normalize(train_labels, test_labels, features, scaler="minMax"):
@@ -1415,3 +1482,6 @@ def normalize(train_labels, test_labels, features, scaler="minMax"):
     test_labels.update(testing_norm_col)
 
     return train_labels, test_labels
+
+def eucledian_distance(point1, point2):
+    return np.sqrt((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2)
