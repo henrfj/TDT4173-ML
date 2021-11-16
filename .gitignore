@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+hasse-testsite/churches.xlsx
+hasse-testsite/metro_distances_test.csv
+hasse-testsite/metro_distances_train.csv
+hasse-testsite/metro_stations.xlsx
