@@ -343,8 +343,8 @@ def one_hot_encoder(train_df, test_df, cat_features, drop_old=True):
     '''
     # TODO: use Laures one-hot encoder.
     
-    if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
-        assert ValueError
+    #if(len(train_df.isna())!=0 or len(train_df.isna())!=0 or len(train_df.isna())!=0):
+    #    assert ValueError
 
     train_labels = train_df.copy()
     test_labels = test_df.copy()
@@ -1084,6 +1084,48 @@ def lgbm_groupKFold_not_log_input(number_of_splits, model, X_train, y_train,
         scores.append(score)
         i += 1
     return scores, np.average(scores), best_model, best_index
+
+def XGB_groupKFold_not_log_input(number_of_splits, model_params, X_train, y_train,
+    eval_metric=None):  
+    ''' y_train NOT LOG!'''
+    X_train = X_train.copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = -1
+    i = 0
+    models=[]
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        
+        # We don't need it anymore.
+        X_train2 = X_train2.drop(["building_id"], axis=1)
+        X_test = X_test.drop(["building_id"], axis=1)
+        
+        model = xgboost.XGBRegressor(
+            max_depth=model_params[0], min_child_weight=model_params[1], gamma=model_params[2], subsample=model_params[3], colsample_bytree=model_params[4],
+             reg_alpha=model_params[5], reg_lambda=model_params[6], learning_rate=model_params[7], n_estimators=model_params[8])
+
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            early_stopping_rounds=15,   # To not overfit
+            verbose=False,
+        )    
+        prediction = model.predict(X_test)
+        score = root_mean_squared_log_error(prediction, y_test)
+        if score <  best_score or best_score==-1:
+            best_score = score
+            best_model = model
+        scores.append(score)
+        i += 1
+        models.append(model)
+    return scores, np.average(scores), best_model, models
 
 def gradient_boost_groupKFold(number_of_splits, model, X_train, y_train):
     X_train = X_train.copy()
