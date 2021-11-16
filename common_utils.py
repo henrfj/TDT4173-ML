@@ -1406,12 +1406,12 @@ def feature_engineering(train_labels, test_labels,
 
     if add_weak_features:
         # Weakly correlated ones.
-        train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
-        test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
+        train_labels["rel_kitchen"] = np.asarray(train_labels["area_kitchen"] / train_labels["area_total"]).astype("float32")
+        test_labels["rel_kitchen"] = np.asarray(test_labels["area_kitchen"] / test_labels["area_total"]).astype("float32")
         added_features.append("rel_kitchen")
 
-        train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
-        test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+        train_labels['rel_height'] = np.asarray(train_labels["floor"] / train_labels["stories"]).astype("float32")
+        test_labels['rel_height'] = np.asarray(test_labels["floor"] / test_labels["stories"]).astype("float32")
         added_features.append('rel_height')
 
     if add_dist_to_metro:
@@ -1423,8 +1423,8 @@ def feature_engineering(train_labels, test_labels,
         test_labels["dist_to_metro_m"] = dist_to_metro_test * (2*np.pi*(6371000) / 360)
         added_features.append('dist_to_metro_m')
         # Walking distance
-        train_labels["metro_walking_distance"] = train_labels["dist_to_metro_m"]<train_labels["dist_to_metro_m"].median()
-        test_labels["metro_walking_distance"] = test_labels["dist_to_metro_m"]<test_labels["dist_to_metro_m"].median()
+        train_labels["metro_walking_distance"] = np.asarray(train_labels["dist_to_metro_m"]<train_labels["dist_to_metro_m"].median()).astype("int")
+        test_labels["metro_walking_distance"] = np.asarray(test_labels["dist_to_metro_m"]<test_labels["dist_to_metro_m"].median()).astype("int")
         added_features.append('metro_walking_distance')
     
     if add_close_to_uni:
@@ -1443,8 +1443,8 @@ def feature_engineering(train_labels, test_labels,
         dist_to_uni_train_meters = dist_to_uni_train*(2*np.pi*(6371000) / 360)
         dist_to_uni_test_meters = dist_to_uni_test*(2*np.pi*(6371000) / 360)
         # Close to uni 
-        train_labels["close_to_uni"] = (dist_to_uni_train_meters<2000)
-        test_labels["close_to_uni"] = (dist_to_uni_test_meters<2000)
+        train_labels["close_to_uni"] = np.asarray((dist_to_uni_train_meters<2000)).astype("int")
+        test_labels["close_to_uni"] = np.asarray((dist_to_uni_test_meters<2000)).astype("int")
         added_features.append('close_to_uni')
 
     if add_dist_to_hospital:
@@ -1467,11 +1467,11 @@ def feature_engineering(train_labels, test_labels,
         added_features.append('dist_to_hospital_m')
 
     if add_floor_features:
-        train_labels["lives_in_highrise"] = (train_labels["stories"]>30)
-        test_labels["lives_in_highrise"] = (test_labels["stories"]>30)
+        train_labels["lives_in_highrise"] = np.asarray((train_labels["stories"]>30)).astype("int")
+        test_labels["lives_in_highrise"] = np.asarray((test_labels["stories"]>30)).astype("int")
         added_features.append('lives_in_highrise')
-        train_labels["first_floor"] = train_labels["floor"]==1
-        test_labels["first_floor"] = test_labels["floor"]==1
+        train_labels["first_floor"] = np.asarray(train_labels["floor"]==1).astype("int")
+        test_labels["first_floor"] = np.asarray(test_labels["floor"]==1).astype("int")
         added_features.append('first_floor')
 
     if add_street_info:
@@ -1525,7 +1525,6 @@ def normalize(train_labels, test_labels, features, scaler="minMax"):
 
 def eucledian_distance(point1, point2):
     return np.sqrt((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2)
-
 
 def root_mean_squared_error(y_true, y_pred):
         return K.sqrt(K.mean(K.square(y_pred - y_true))) 
