@@ -385,7 +385,6 @@ def oneHotFeature(metadata, data, feature):
         data[value] = new_column
     return values
 
-
 def fillnaReg(df, X_features, y_feature):
     df = df.copy()
     df_temp = df[df[y_feature].notna()]
@@ -394,7 +393,6 @@ def fillnaReg(df, X_features, y_feature):
     predict = reg.predict(df[X_features])
     df[y_feature] = np.where(df[y_feature]>0, df[y_feature], predict)
     return df
-
 
 def get_cat_and_non_cat_data(metadata):
     categorical = []
@@ -529,9 +527,9 @@ def predict_and_store(model, test_labels, test_pd, path="default", exponential=F
     submission.to_csv(path, index=False)
 
 def create_ANN_model(dense_layers=[64, 64, 64], activation=tensorflow.nn.leaky_relu,
-                     dropout=[False, False, False], dropout_rate=0.2, optimizer=Adam, #'adamn'
-                      loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True,
-                      lr=0.001):
+                     dropout=[False, False, False], dropout_rate=0.2, optimizer="adamn", #'adamn'
+                      loss_function=rmsle_custom, metrics=['accuracy'], output_activation=True
+                      ):
     # Model
     model = tensorflow.keras.Sequential()
     for i, n in enumerate(dense_layers):
@@ -545,7 +543,7 @@ def create_ANN_model(dense_layers=[64, 64, 64], activation=tensorflow.nn.leaky_r
         model.add(Dense(1)) #Output
 
     # Optimized for reducing msle loss.
-    model.compile(optimizer=optimizer(learning_rate=lr), 
+    model.compile(optimizer=optimizer, 
                 loss=loss_function, #'msle', 'rmse', RMSLETF, rmsle_custom
                 metrics=metrics) # metrics=['mse', 'msle'] metrics=[tf.keras.metrics.Accuracy()]
 
@@ -1112,7 +1110,6 @@ def catboost_groupKFold(number_of_splits, model, X_train, y_train, categorical_f
         scores.append(score)
     return scores, np.average(scores), best_model, best_index
 
-
 def RF_groupKFold(number_of_splits, model, X_train, y_train):  
     ''' y_train needs to be log. Model trains to predict logs now!'''
     X_train = X_train.copy()
@@ -1169,7 +1166,6 @@ def KNN_groupKFold(number_of_splits, model, X_train, y_train):
         i += 1
     return scores, np.average(scores), best_model, best_index
 
-
 def plot_feature_importance(importance,names,model_type):
     
     #Create arrays from feature importance and feature names
@@ -1191,6 +1187,7 @@ def plot_feature_importance(importance,names,model_type):
     plt.title(model_type + 'Feature Importance')
     plt.xlabel('FEATURE IMPORTANCE')
     plt.ylabel('FEATURE NAMES')
+
 def SVR_groupKFold(number_of_splits, model, X_train, y_train):  
     ''' y_train needs to be log. Model trains to predict logs now!'''
     X_train = X_train.copy()
@@ -1291,7 +1288,8 @@ def clean_data(train, test,
             # Logging
             train_labels[feature] = np.log(train_labels[feature])
             test_labels[feature] = np.log(test_labels[feature])
-
+    
+    # remove upper Strip
     remove_upper_stripe = [row["area_living"] if row["area_living"] < row["area_total"] else row["area_total"]*(train_labels["area_living"].mean() / train_labels["area_total"].mean()) for _, row in train_labels.iterrows()] 
     train_labels["area_living"] = remove_upper_stripe
 
@@ -1332,6 +1330,7 @@ def clean_data(train, test,
     test_labels["seller"] = test_labels["seller"].fillna(unknown_category)
     ## --------------------------------------------------------------------------------------------------------------- ##
     if fillNan:
+        # Taking care of the string features first... NB! no nans in string data.
         # Fill rest with median or mean
         # Float
         train_labels[float_numerical_features] = train_labels[float_numerical_features].fillna(train_labels[float_numerical_features].mean())
@@ -1354,104 +1353,145 @@ def clean_data(train, test,
     return train_labels, train_targets, test_labels
 
 def feature_engineering(train_labels, test_labels,
-    add_dist_to_metro=False):
+    add_base_features=True, 
+    add_bool_features=True,
+    add_weak_features=False,
+    add_dist_to_metro=False,
+    add_close_to_uni=False,
+    add_dist_to_hospital=False,
+    add_floor_features=False,
+    add_street_info=False,
+    ):
 
-    added_features = []
-    # Add R and theta
-    train_labels, test_labels = polar_coordinates(train_labels, test_labels)
-    added_features.append("r")
-    added_features.append("theta")
+    if add_base_features:
+        added_features = []
+        # Add R and theta
+        train_labels, test_labels = polar_coordinates(train_labels, test_labels)
+        added_features.append("r")
+        added_features.append("theta")
 
-    # ADD rel_height of apartment - not good
-    #train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
-    #test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
-    #added_features.append('rel_height')
+        # Add "Spacious_rooms": area per room
+        train_labels['spacious_rooms'] = train_labels['area_total'] / train_labels['rooms']
+        test_labels['spacious_rooms'] = test_labels['area_total'] / test_labels['rooms']
+        added_features.append('spacious_rooms')
 
-    # Add "Spacious_rooms": area per room
-    train_labels['spacious_rooms'] = train_labels['area_total'] / train_labels['rooms']
-    test_labels['spacious_rooms'] = test_labels['area_total'] / test_labels['rooms']
-    added_features.append('spacious_rooms')
+        # Newly_built
+        is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in train_labels.iterrows()] 
+        train_labels["actually_new"] = is_new
+        is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in test_labels.iterrows()] 
+        test_labels["actually_new"] = is_new
+        added_features.append("actually_new")
 
-    # Newly_built
-    is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in train_labels.iterrows()] 
-    train_labels["actually_new"] = is_new
-    is_new = [1 if row["constructed"] >= 2000 else 0 for _, row in test_labels.iterrows()] 
-    test_labels["actually_new"] = is_new
-    added_features.append("actually_new")
+        train_labels["rel_living"] = np.asarray(train_labels["area_living"] / train_labels["area_total"]).astype("float32")
+        test_labels["rel_living"] = np.asarray(test_labels["area_living"] / test_labels["area_total"]).astype("float32")
+        added_features.append("rel_living")
+            
+        train_labels["total_bathrooms"] = np.asarray(train_labels["bathrooms_private"] + train_labels["bathrooms_shared"]).astype("int")
+        test_labels["total_bathrooms"] = np.asarray(test_labels["bathrooms_private"] + test_labels["bathrooms_shared"]).astype("int")
+        added_features.append("total_bathrooms")
 
-    ### Testing some new ideas!
-    #train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
-    #test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
-    #added_features.append("rel_kitchen")
+    if add_bool_features:
+        # Some boolean features
+        train_labels["multiple_balconies"] = np.asarray((train_labels["balconies"]>1)).astype("int")
+        test_labels["multiple_balconies"] = np.asarray((test_labels["balconies"]>1)).astype("int")
+        added_features.append("multiple_balconies")
 
-    train_labels["rel_living"] = train_labels["area_living"] / train_labels["area_total"]
-    test_labels["rel_living"] = test_labels["area_living"] / test_labels["area_total"]
-    added_features.append("rel_living")
-        
-    train_labels["total_bathrooms"] = train_labels["bathrooms_private"] + train_labels["bathrooms_shared"]
-    test_labels["total_bathrooms"] = test_labels["bathrooms_private"] + test_labels["bathrooms_shared"]
-    added_features.append("total_bathrooms")
+        train_labels["multiple_loggias"] = np.asarray((train_labels["loggias"]>1)).astype("int")
+        test_labels["multiple_loggias"] = np.asarray((test_labels["loggias"]>1)).astype("int")
+        added_features.append("multiple_loggias")
 
-    # Some other ones...
-    #
-    train_labels["multiple_balconies"] = (train_labels["balconies"]>1)
-    test_labels["multiple_balconies"] = (test_labels["balconies"]>1)
+        train_labels["both_windows"] = np.asarray((train_labels["windows_court"]==True) & (train_labels["windows_street"]==True)).astype("int")
+        test_labels["both_windows"] = np.asarray((test_labels["windows_court"]==True) & (test_labels["windows_street"]==True)).astype("int")
+        added_features.append("both_windows")
 
-    added_features.append("multiple_balconies")
-    #
-    train_labels["multiple_loggias"] = (train_labels["loggias"]>1)
-    test_labels["multiple_loggias"] = (test_labels["loggias"]>1)
-    added_features.append("multiple_loggias")
-    #
-    train_labels["both_windows"] = (train_labels["windows_court"]==True) & (train_labels["windows_street"]==True)
-    test_labels["both_windows"] = (test_labels["windows_court"]==True) & (test_labels["windows_street"]==True)
-    added_features.append("both_windows")
+    if add_weak_features:
+        # Weakly correlated ones.
+        train_labels["rel_kitchen"] = train_labels["area_kitchen"] / train_labels["area_total"]
+        test_labels["rel_kitchen"] = test_labels["area_kitchen"] / test_labels["area_total"]
+        added_features.append("rel_kitchen")
+
+        train_labels['rel_height'] = train_labels["floor"] / train_labels["stories"]
+        test_labels['rel_height'] = test_labels["floor"] / test_labels["stories"]
+        added_features.append('rel_height')
 
     if add_dist_to_metro:
-        # Get station data
-        stations = pd.read_excel("metro_stations.xlsx")
-        longs = np.zeros(len(stations))
-        lats = np.zeros(len(stations))
-        for i, row in stations.iterrows():
-            l = str(row["Coordinates"]).split(",")
-            longs[i] = l[0]
-            lats[i] = l[1]
-        stations["longitude"] = longs
-        stations["latitude"] = lats
-
-        ## Distance to nearest metro stations
-        dist_to_metro = np.zeros(len(train_labels))
+        # Pre-calculated
+        dist_to_metro_train = np.loadtxt("metro_distances_train.csv")
+        dist_to_metro_test = np.loadtxt("metro_distances_test.csv")
+        # Meter variant
+        train_labels["dist_to_metro_m"] = dist_to_metro_train * (2*np.pi*(6371000) / 360)
+        test_labels["dist_to_metro_m"] = dist_to_metro_test * (2*np.pi*(6371000) / 360)
+        added_features.append('dist_to_metro_m')
+        # Walking distance
+        train_labels["metro_walking_distance"] = train_labels["dist_to_metro_m"]<train_labels["dist_to_metro_m"].median()
+        test_labels["metro_walking_distance"] = test_labels["dist_to_metro_m"]<test_labels["dist_to_metro_m"].median()
+        added_features.append('metro_walking_distance')
+    
+    if add_close_to_uni:
+        # Uni location
+        uni_location = (37.5286, 55.7039)
+        ## Distance to state university
+        dist_to_uni_train = np.zeros(len(train_labels))
         for i, row_t in train_labels.iterrows():
-            print(".", end="")
             apartment = (row_t["longitude"], row_t["latitude"])
-            nearest_dist = -1
-            for j, row_s in stations.iterrows():
-                station = (row_s["longitude"], row_s["latitude"]) 
-                distance = eucledian_distance(station, apartment)
-                if distance < nearest_dist or nearest_dist==-1:
-                    nearest_dist=distance
-            
-            dist_to_metro[i] = nearest_dist
-        train_labels["dist_to_metro"] = dist_to_metro
-        train_labels["dist_to_metro_in_meters"] = train_labels["dist_to_metro"] * (2*np.pi*(6371000) / 360)
-        
-        ## Distance to nearest metro stations
-        dist_to_metro = np.zeros(len(test_labels))
+            dist_to_uni_train[i] = eucledian_distance(apartment, uni_location)
+        dist_to_uni_test = np.zeros(len(test_labels))
         for i, row_t in test_labels.iterrows():
-            print(".", end="")
             apartment = (row_t["longitude"], row_t["latitude"])
-            nearest_dist = -1
-            for j, row_s in stations.iterrows():
-                station = (row_s["longitude"], row_s["latitude"]) 
-                distance = eucledian_distance(station, apartment)
-                if distance < nearest_dist or nearest_dist==-1:
-                    nearest_dist=distance
-            
-            dist_to_metro[i] = nearest_dist
-        test_labels["dist_to_metro"] = dist_to_metro
-        test_labels["dist_to_metro_in_meters"] = test_labels["dist_to_metro"] * (2*np.pi*(6371000) / 360)
-        added_features.append("dist_to_metro")
-        added_features.append("dist_to_metro_in_meters")
+            dist_to_uni_test[i] = eucledian_distance(apartment, uni_location)
+        # Meter edition
+        dist_to_uni_train_meters = dist_to_uni_train*(2*np.pi*(6371000) / 360)
+        dist_to_uni_test_meters = dist_to_uni_test*(2*np.pi*(6371000) / 360)
+        # Close to uni 
+        train_labels["close_to_uni"] = (dist_to_uni_train_meters<2000)
+        test_labels["close_to_uni"] = (dist_to_uni_test_meters<2000)
+        added_features.append('close_to_uni')
+
+    if add_dist_to_hospital:
+        # Location of state hospital
+        hosp_location = (37.389167, 55.746389)
+        ## Distance to state university
+        dist_to_hosp_train = np.zeros(len(train_labels))
+        for i, row_t in train_labels.iterrows():
+            apartment = (row_t["longitude"], row_t["latitude"])
+            dist_to_hosp_train[i] = eucledian_distance(apartment, hosp_location)
+        dist_to_hosp_test = np.zeros(len(test_labels))
+        for i, row_t in test_labels.iterrows():
+            apartment = (row_t["longitude"], row_t["latitude"])
+            dist_to_hosp_test[i] = eucledian_distance(apartment, hosp_location)
+
+        dist_to_hosp_train_meters = dist_to_hosp_train*(2*np.pi*(6371000) / 360)
+        train_labels["dist_to_hospital_m"] = dist_to_hosp_train_meters
+        dist_to_hosp_test_meters = dist_to_hosp_test*(2*np.pi*(6371000) / 360)
+        test_labels["dist_to_hospital_m"] = dist_to_hosp_test_meters
+        added_features.append('dist_to_hospital_m')
+
+    if add_floor_features:
+        train_labels["lives_in_highrise"] = (train_labels["stories"]>30)
+        test_labels["lives_in_highrise"] = (test_labels["stories"]>30)
+        added_features.append('lives_in_highrise')
+        train_labels["first_floor"] = train_labels["floor"]==1
+        test_labels["first_floor"] = test_labels["floor"]==1
+        added_features.append('first_floor')
+
+    if add_street_info:
+        # Seafront = набережная.
+        # This was pretty much the only one correlated to price.
+        on_type = [1 if "набережная" in row["street"] else 0 for _, row in train_labels.iterrows()] 
+        train_labels["on_seafront"] = on_type
+        on_type = [1 if "набережная" in row["street"] else 0 for _, row in test_labels.iterrows()] 
+        test_labels["on_seafront"] = on_type
+        added_features.append('on_seafront')
+        # Also, these streets seemed good to live in.
+        good_streets = ["Мосфильмовская улица", "набережная Пресненская",
+         "улица Ефремова", "Казарменный переулок"]
+        for street_name in good_streets:
+            on_street = [1 if street_name in row["street"] else 0 for _, row in train_labels.iterrows()] 
+            train_labels["in_"+street_name] = on_street
+        for street_name in good_streets:
+            on_street = [1 if street_name in row["street"] else 0 for _, row in test_labels.iterrows()] 
+            test_labels["in_"+street_name] = on_street
+            added_features.append("in_"+street_name)
 
     return train_labels, test_labels, added_features
 
@@ -1485,3 +1525,7 @@ def normalize(train_labels, test_labels, features, scaler="minMax"):
 
 def eucledian_distance(point1, point2):
     return np.sqrt((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2)
+
+
+def root_mean_squared_error(y_true, y_pred):
+        return K.sqrt(K.mean(K.square(y_pred - y_true))) 
