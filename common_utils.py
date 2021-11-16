@@ -511,7 +511,7 @@ def load_all_data(fraction_of_data=1, apartment_id='apartment_id',path=None):
 
     return train, test, metaData
 
-def predict_and_store(model, test_labels, test_pd, path="default", exponential=False, price_per_sq = False, total_area_df = None):
+def predict_and_store(model, test_labels, test_pd, path="default", exponential=False, price_per_sq = False, total_area_df = None, exponentialm1=False):
     '''
         Inputs
         - test_pd needs to be the original full test dataframe
@@ -519,6 +519,9 @@ def predict_and_store(model, test_labels, test_pd, path="default", exponential=F
     result = model.predict(test_labels)
     if exponential:
         result = np.exp(result)
+    elif exponentialm1:
+        print("expm1")
+        result = np.expm1(result)
     if price_per_sq:
         result = result*total_area_df
     submission = pd.DataFrame()
@@ -1085,9 +1088,9 @@ def lgbm_groupKFold_not_log_input(number_of_splits, model, X_train, y_train,
         i += 1
     return scores, np.average(scores), best_model, best_index
 
-def XGB_groupKFold_not_log_input(number_of_splits, model_params, X_train, y_train,
+def XGB_groupKFold_new_log(number_of_splits, model_params, X_train, y_train,
     eval_metric=None):  
-    ''' y_train NOT LOG!'''
+    ''' y_train is log1p'''
     X_train = X_train.copy()
     y_train = y_train.copy()
     
@@ -1117,8 +1120,8 @@ def XGB_groupKFold_not_log_input(number_of_splits, model_params, X_train, y_trai
             early_stopping_rounds=15,   # To not overfit
             verbose=False,
         )    
-        prediction = model.predict(X_test)
-        score = root_mean_squared_log_error(prediction, y_test)
+        prediction = np.expm1(model.predict(X_test))
+        score = root_mean_squared_log_error(prediction, np.expm1(y_test))
         if score <  best_score or best_score==-1:
             best_score = score
             best_model = model
@@ -1308,7 +1311,7 @@ def closest_district(lat, long, district_centre_long, district_centre_lat):
 
 def clean_data(train, test,
                  features, float_numerical_features, int_numerical_features, cat_features,
-                 log_targets=True, log_area=True, fillNan=True):
+                 log_targets=True, log_area=True, fillNan=True, log1_area=False, log1_targets=False):
     '''Clean the data according to best knowledge so far...
         TODO - Outlier removal from train
         TODO - fix the straight lines in area plots.
@@ -1325,6 +1328,9 @@ def clean_data(train, test,
     # Log targets
     if log_targets:
         train_targets = np.log(train_targets)
+    elif log1_targets:
+        print("log1p targets!")
+        train_targets = np.log1p(train_targets)
 
     ## ------------------------------------------------------------------------------------------------ ##
     # TODO: Shoul we use thise at all?
@@ -1353,6 +1359,7 @@ def clean_data(train, test,
     ## ------------------------------------------------------------------------------------------------ ##
 
     # Remove zero area living
+    # TODO: why not > 0?
     remove_zero = [row["area_living"] if row["area_living"] >= 1 else row["area_total"]*(train_labels["area_living"].mean() / train_labels["area_total"].mean()) for _, row in train_labels.iterrows()] 
     train_labels["area_living"] = remove_zero
 
@@ -1360,13 +1367,20 @@ def clean_data(train, test,
     test_labels["area_living"] = remove_zero
 
     # Log the areas
+    fs = ["area_total", "area_living", "area_kitchen"]
     if log_area:
-        fs = ["area_total", "area_living", "area_kitchen"]
         for feature in fs:
             # Logging
             train_labels[feature] = np.log(train_labels[feature])
             test_labels[feature] = np.log(test_labels[feature])
-    
+    elif log1_area:
+        print("log1p area!!")
+        for feature in fs:
+            # Logging
+            train_labels[feature] = np.log1p(train_labels[feature])
+            test_labels[feature] = np.log1p(test_labels[feature])
+
+
     # remove upper Strip
     remove_upper_stripe = [row["area_living"] if row["area_living"] < row["area_total"] else row["area_total"]*(train_labels["area_living"].mean() / train_labels["area_total"].mean()) for _, row in train_labels.iterrows()] 
     train_labels["area_living"] = remove_upper_stripe
