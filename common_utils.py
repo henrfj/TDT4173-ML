@@ -1122,6 +1122,46 @@ def lgbm_groupKFold_not_log_input(number_of_splits, model, X_train, y_train,
         i += 1
     return scores, np.average(scores), best_model, best_index
 
+def lgbm_groupKFold_price_sq_logged(number_of_splits, model, X_train, y_train, y_target,
+    eval_metric=None):  
+    # y_train is log price / area_total!!
+    # y_Target is price
+
+    x_area = X_train['area_total']
+    
+    X_train = X_train.drop(['area_total'],axis=1).copy()
+    y_train = y_train.copy()
+    
+    scores = []
+    best_model = ""
+    best_index = -1
+    gkf = GroupKFold(n_splits=number_of_splits)
+    groups = X_train["building_id"]
+    best_score = 1
+    i = 0
+    
+    for train_index, test_index in gkf.split(X_train, y_train, groups):
+        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+        y_target2, area_test = y_target.iloc[test_index], x_area.iloc[test_index]
+
+        model.fit(
+            X_train2,
+            y_train2,
+            eval_set=[(X_test, y_test)],
+            eval_metric=eval_metric,
+            verbose=False,
+        )    
+        prediction = model.predict(X_test)*area_test
+        score = root_mean_squared_log_error(np.exp(prediction), y_target2)
+        if score <  best_score:
+            best_score = score
+            best_model = model
+            best_index = i
+        scores.append(score)
+        i += 1
+    return scores, np.average(scores), best_model, best_index
+
 def XGB_groupKFold_new_log(number_of_splits, model_params, X_train, y_train,
     eval_metric=None):  
     ''' y_train is log1p'''
@@ -1493,6 +1533,7 @@ def feature_engineering(train_labels, test_labels,
     add_floor_features=False,
     add_street_info=False,
     add_some_more_features=False,
+    add_district_information=False,
     ):
 
     if add_base_features:
@@ -1602,9 +1643,20 @@ def feature_engineering(train_labels, test_labels,
         train_labels["lives_in_highrise"] = np.asarray((train_labels["stories"]>30)).astype("int")
         test_labels["lives_in_highrise"] = np.asarray((test_labels["stories"]>30)).astype("int")
         added_features.append('lives_in_highrise')
+
         train_labels["first_floor"] = np.asarray(train_labels["floor"]==1).astype("int")
         test_labels["first_floor"] = np.asarray(test_labels["floor"]==1).astype("int")
         added_features.append('first_floor')
+        
+        train_labels["floor_inverse"] = train_labels["stories"]-train_labels["floor"]
+        median_floor_inverse = np.median(train_labels["floor_inverse"])
+        train_labels["floor_inverse"]=train_labels["floor_inverse"].where(train_labels["floor_inverse"]>=0, other=median_floor_inverse)
+        test_labels["floor_inverse"] = test_labels["stories"]-test_labels["floor"]
+        test_labels["floor_inverse"]=test_labels["floor_inverse"].where(test_labels["floor_inverse"]>=0, other=median_floor_inverse)
+        added_features.append('floor_inverse')
+
+        
+
 
     if add_street_info:
         # Seafront = набережная.
@@ -1723,6 +1775,73 @@ def feature_engineering(train_labels, test_labels,
         test_labels['average_area_kitchen_district'] = kitchen_district_test
         test_labels['average_area_total_floor'] = total_floor_test
         test_labels['average_area_year_constructed'] = total_constructed_test
+    
+    if add_district_information:
+        density = {
+            0: 701353/66.1755,
+            1: 1112846/109.9,
+            2: 1240062/101.889,
+            3: 1394497/154.6,
+            4: 1116924/117.6,
+            5: 1593065/132,
+            6: 1179211/111.4,
+            7: 1049104/153,
+            8: 779965/93.281,
+            9: 215727/37.22,
+            10:86752/1084.3,
+            11:113569/361.4
+          }
+        population = {
+            0: 701353,
+            1: 1112846,
+            2: 1240062,
+            3: 1394497,
+            4: 1116924,
+            5: 1593065,
+            6: 1179211,
+            7: 1049104,
+            8: 779965,
+            9: 215727,
+            10:86752,
+            11:113569
+                }
+        district_area ={
+            0: 66.1755,
+            1: 109.9,
+            2: 101.889,
+            3: 154.6,
+            4: 117.6,
+            5: 132,
+            6: 111.4,
+            7: 153,
+            8: 93.281,
+            9: 37.22,
+            10:1084.3,
+            11:361.4
+                }
+
+        density_district = [density[row['district']] for _,row in train_labels.iterrows()]
+        population_district = [population[row['district']] for _,row in train_labels.iterrows()]
+        area_district = [district_area[row['district']] for _,row in train_labels.iterrows()]
+        outside_MKAD = [1 if (row["district"] in [9,10,11]) else 0 for _,row in train_labels.iterrows()]
+
+        train_labels["density_district"] = density_district
+        train_labels["population_district"] = population_district
+        train_labels["area_district"] = area_district
+        train_labels["outside_MKAD"] = outside_MKAD
+        train_labels["density_district_log"] = np.log(train_labels['density_district'])
+
+        density_district_test = [density[row['district']] for _,row in test_labels.iterrows()]
+        population_district_test = [population[row['district']] for _,row in test_labels.iterrows()]
+        area_district_test = [district_area[row['district']] for _,row in test_labels.iterrows()]
+        outside_MKAD_test = [1 if (row["district"] in [9,10,11]) else 0 for _,row in test_labels.iterrows()]
+
+        test_labels["density_district"] = density_district_test
+        test_labels["population_district"] = population_district_test
+        test_labels["area_district"] = area_district_test
+        test_labels["outside_MKAD"] = outside_MKAD_test
+        test_labels["density_district_log"] = np.log(test_labels['density_district'])
+
 
     return train_labels, test_labels, added_features
 
