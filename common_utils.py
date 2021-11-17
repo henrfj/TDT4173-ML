@@ -802,7 +802,8 @@ def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
         # Fit
         hist = ann_model.fit(x=x_tr, y=y_tr,
               validation_data=(x_te, y_te),
-              verbose=0, epochs=400, callbacks=[early_stop, PrintDot()]
+              verbose=0, epochs=1000,
+              callbacks=[early_stop, PrintDot()]
               )
         
         sample_pred = ann_model.predict(x_te)
@@ -1475,6 +1476,11 @@ def clean_data(train, test,
         # Bool (The rest)
         test_labels = test_labels.fillna(test_labels.median()) # Boolean
 
+    if "constructed" in features:
+        # Is supposed to be integer.
+        train["constructed"] = np.asarray(train["constructed"]).astype("int")
+        test["constructed"] = np.asarray(test["constructed"]).astype("int")
+
     return train_labels, train_targets, test_labels
 
 def feature_engineering(train_labels, test_labels,
@@ -1620,12 +1626,13 @@ def feature_engineering(train_labels, test_labels,
             added_features.append("in_"+street_name)
         
     if add_some_more_features:
-        train_labels = train_labels.astype({'constructed':'int'})
-        test_labels = test_labels.astype({'constructed':'int'})
+        # This is moved to data_cleaning.
+        #train_labels = train_labels.astype({'constructed':'int'})
+        #test_labels = test_labels.astype({'constructed':'int'})
 
         train_labels["area_floor"] = train_labels["area_total"] / train_labels["floor"]
         train_labels["area_stories"] = train_labels["area_total"] / train_labels["stories"]
-        train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"])
+        #train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"]) # is just the invert of spacious rooms
         train_labels["old_building"] = (train_labels["constructed"]<1950)
         train_labels["cold_war_building"] = (train_labels["constructed"]>1955) & (train_labels["constructed"]<2000)
         train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>200) & (train_labels["constructed"]<2018)
@@ -1634,7 +1641,7 @@ def feature_engineering(train_labels, test_labels,
 
         test_labels["area_floor"] = test_labels["area_total"] / test_labels["floor"]
         test_labels["area_stories"] = test_labels["area_total"] / test_labels["stories"]
-        test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"])
+        #test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"]) # is just the invert of spacious rooms
         test_labels["old_building"] = (test_labels["constructed"]<1950)
         test_labels["cold_war_building"] = (test_labels["constructed"]>1955) & (test_labels["constructed"]<2000)
         test_labels["modern_but_not_too_modern"] = (test_labels["constructed"]>200) & (test_labels["constructed"]<2018)
