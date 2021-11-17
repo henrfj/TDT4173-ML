@@ -596,6 +596,39 @@ def csv_bagging(kaggle_scores, csv_paths, submission_path):
     
     submission.to_csv(submission_path, index=False)
 
+def tree_bagging(bags, submission_path, weight=4):
+    submission = bag(bags, weight)['data']
+    submission.to_csv(submission_path, index=False)
+
+def bag(bags, weight = 4):
+    if type(bags) != list:
+        return bags
+    else:
+        new_bags = []
+        for b in bags:
+            new_bags.append(bag(b))
+
+    if 'data' not in new_bags[0].keys():
+        for b in new_bags:
+            b['data'] = pd.read_csv(b['path']).sort_values(by="id")
+
+    np_predictions = []
+    for b in new_bags:
+        np_predictions.append(b['data']["price_prediction"].to_numpy().T)
+
+    score = np.average([bag['score'] for bag in new_bags], weights = [1 / bag['score'] ** weight for bag in new_bags])
+    # Bagging
+    result = np.average(
+        np_predictions,
+        weights = [1 / bag['score'] ** weight for bag in new_bags],
+        axis=0
+        )
+    
+    submission = pd.DataFrame()
+    submission['id'] = new_bags[0]['data']['id']
+    submission['price_prediction'] = result
+    return {'data': submission, 'score': score}
+
 def get_oof_xgboost(clf, x_train, y_train, x_test, NFOLDS=5, eval_metric='rmse'):
     """
     NB! y should be logarithm of price.
