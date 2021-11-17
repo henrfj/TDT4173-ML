@@ -1643,48 +1643,39 @@ def feature_engineering(train_labels, test_labels,
 
 
         # Calculate district average areas
-        arr = train_labels[["district","area_total","area_living","area_kitchen",]].to_numpy()
+        arr_train = train_labels[["district","area_total","area_living","area_kitchen",]].to_numpy()
+        arr_test = test_labels[["district","area_total","area_living","area_kitchen",]].to_numpy()
+
+        arr_full = np.concatenate((arr_train,arr_test),axis=0)
 
         average_area_total_district = {}
         average_area_living_district = {}
         average_area_kitchen_district = {}
 
-        for x in sorted(np.unique(arr[...,0])):
-            average_area_total_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
-            average_area_living_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,2])
-            average_area_kitchen_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,3])
-
-        # Ensure that if district only occurs in testing and not in training data, there is still an average calculated
-        arr = test_labels[["district","area_total","area_living","area_kitchen",]].to_numpy()
-        for district in np.unique(test_labels['district']):
-            if district not in np.unique(train_labels['district']):
-                average_area_total_district[district] = np.average(arr[np.where(arr[...,0]==district)][...,1])
-                average_area_living_district[district] = np.average(arr[np.where(arr[...,0]==district)][...,2])
-                average_area_kitchen_district[district] = np.average(arr[np.where(arr[...,0]==district)][...,3])
+        for x in sorted(np.unique(arr_full[...,0])):
+            average_area_total_district[x] = np.average(arr_full[np.where(arr_full[...,0]==x)][...,1])
+            average_area_living_district[x] = np.average(arr_full[np.where(arr_full[...,0]==x)][...,2])
+            average_area_kitchen_district[x] = np.average(arr_full[np.where(arr_full[...,0]==x)][...,3])
 
         # Calculate floor average areas
-        arr = train_labels[["floor","area_total"]].to_numpy()
-        average_area_total_floor = {}
-        for x in sorted(np.unique(arr[...,0])):
-            average_area_total_floor[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
+        arr_train = train_labels[["floor","area_total"]].to_numpy()
+        arr_test = test_labels[["floor","area_total"]].to_numpy()
 
-        # Ensure that if floor only occurs in testing and not in training data, there is still an average calculated
-        arr = test_labels[["floor","area_total"]].to_numpy()
-        for floor in np.unique(test_labels['floor']):
-            if district not in np.unique(train_labels['floor']):
-                average_area_total_floor[floor] = np.average(arr[np.where(arr[...,0]==floor)][...,1])
+        arr_full = np.concatenate((arr_train,arr_test),axis=0)
+
+        average_area_total_floor = {}
+        for x in sorted(np.unique(arr_full[...,0])):
+            average_area_total_floor[x] = np.average(arr_full[np.where(arr_full[...,0]==x)][...,1])
    
         # Calculate construction year average areas
-        arr = train_labels[["constructed","area_total","area_living","area_kitchen",]].to_numpy()
+        arr_train = train_labels[["constructed","area_total","area_living","area_kitchen",]].to_numpy()
+        arr_test = test_labels[["constructed","area_total","area_living","area_kitchen",]].to_numpy()
+        
+        arr_full = np.concatenate((arr_train,arr_test),axis=0)
+
         average_area_total_constructed = {}
-        for x in sorted(np.unique(arr[...,0])):
-            average_area_total_constructed[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
-  
-        # Ensure that if construction year only occurs in testing and not in training data, there is still an average calculated
-        arr = test_labels[["constructed","area_total"]].to_numpy()
-        for constructed in np.unique(test_labels['constructed']):
-            if district not in np.unique(train_labels['constructed']):
-                average_area_total_constructed[constructed] = np.average(arr[np.where(arr[...,0]==constructed)][...,1])
+        for x in sorted(np.unique(arr_full[...,0])):
+            average_area_total_constructed[x] = np.average(arr_full[np.where(arr_full[...,0]==x)][...,1])
    
         total_district = []
         living_district = []
