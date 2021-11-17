@@ -131,3 +131,7 @@ hasse-testsite/churches.xlsx
 hasse-testsite/metro_distances_test.csv
 hasse-testsite/metro_distances_train.csv
 hasse-testsite/metro_stations.xlsx
+hasse-testsite/Catboost/churches.xlsx
+hasse-testsite/Catboost/metro_distances_test.csv
+hasse-testsite/Catboost/metro_distances_train.csv
+hasse-testsite/Catboost/metro_stations.xlsx
