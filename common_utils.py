@@ -1622,18 +1622,73 @@ def feature_engineering(train_labels, test_labels,
     if add_some_more_features:
         train_labels["area_floor"] = train_labels["area_total"] / train_labels["floor"]
         train_labels["area_stories"] = train_labels["area_total"] / train_labels["stories"]
+        train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"])
         train_labels["old_building"] = (train_labels["constructed"]<1950)
         train_labels["cold_war_building"] = (train_labels["constructed"]>1955) & (train_labels["constructed"]<2000)
         train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>200) & (train_labels["constructed"]<2018)
         train_labels["bathroom_area"] = (train_labels["bathrooms_private"] + train_labels["bathrooms_shared"])/train_labels["area_total"]
+        train_labels['bathrooms_per_room'] = (train_labels["total_bathrooms"])/train_labels["rooms"]
 
         test_labels["area_floor"] = test_labels["area_total"] / test_labels["floor"]
         test_labels["area_stories"] = test_labels["area_total"] / test_labels["stories"]
+        test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"])
         test_labels["old_building"] = (test_labels["constructed"]<1950)
         test_labels["cold_war_building"] = (test_labels["constructed"]>1955) & (test_labels["constructed"]<2000)
         test_labels["modern_but_not_too_modern"] = (test_labels["constructed"]>200) & (test_labels["constructed"]<2018)
         test_labels["bathroom_area"] = (test_labels["bathrooms_private"] + test_labels["bathrooms_shared"])/test_labels["area_total"]
+        test_labels['bathrooms_per_room'] = (test_labels["total_bathrooms"])/test_labels["rooms"]
 
+
+        # Calculate district average areas
+        arr = train_labels[["district","area_total","area_living","area_kitchen",]].to_numpy()
+
+        average_area_total_district = {}
+        average_area_living_district = {}
+        average_area_kitchen_district = {}
+
+        for x in sorted(np.unique(arr[...,0])):
+            average_area_total_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
+            average_area_living_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,2])
+            average_area_kitchen_district[x] = np.average(arr[np.where(arr[...,0]==x)][...,3])
+
+        # Calculate floor average areas
+        arr = train_labels[["floor","area_total","area_living","area_kitchen",]].to_numpy()
+        average_area_total_floor = {}
+        for x in sorted(np.unique(arr[...,0])):
+            average_area_total_floor[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
+   
+        # Calculate construction year average areas
+        arr = train_labels[["constructed","area_total","area_living","area_kitchen",]].to_numpy()
+        average_area_total_constructed = {}
+        for x in sorted(np.unique(arr[...,0])):
+            average_area_total_constructed[x] = np.average(arr[np.where(arr[...,0]==x)][...,1])
+  
+   
+        total_district = []
+        living_district = []
+        kitchen_district = []
+
+        total_floor = []
+        total_constructed = []
+
+        for _,row in train_labels.iterrows():
+            total_district.append(row['area_total']/average_area_total_district[row['district']])
+            living_district.append(row['area_living']/average_area_living_district[row['district']])
+            kitchen_district.append(row['area_kitchen']/average_area_kitchen_district[row['district']])
+            total_floor.append(row['area_total']/average_area_total_floor[row['floor']])
+            total_constructed.append(row['area_total']/average_area_total_constructed[row['constructed']])
+
+        train_labels['average_area_total_district'] = total_district
+        train_labels['average_area_living_district'] = living_district
+        train_labels['average_area_kitchen_district'] = kitchen_district
+        train_labels['average_area_total_floor'] = total_floor
+        train_labels['average_area_year_constructed'] = total_constructed
+
+        test_labels['average_area_total_district'] = total_district
+        test_labels['average_area_living_district'] = living_district
+        test_labels['average_area_kitchen_district'] = kitchen_district
+        test_labels['average_area_total_floor'] = total_floor
+        test_labels['average_area_year_constructed'] = total_constructed
 
     return train_labels, test_labels, added_features
 
