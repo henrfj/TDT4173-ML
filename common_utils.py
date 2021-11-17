@@ -1453,6 +1453,7 @@ def feature_engineering(train_labels, test_labels,
     add_dist_to_hospital=False,
     add_floor_features=False,
     add_street_info=False,
+    add_some_more_features=False,
     ):
 
     if add_base_features:
@@ -1584,6 +1585,15 @@ def feature_engineering(train_labels, test_labels,
             on_street = [1 if street_name in row["street"] else 0 for _, row in test_labels.iterrows()] 
             test_labels["in_"+street_name] = on_street
             added_features.append("in_"+street_name)
+        
+    if add_some_more_features:
+        train_labels["area_floor"] = train_labels["area_total"] / train_labels["floor"]
+        train_labels["area_stories"] = train_labels["area_total"] / train_labels["stories"]
+        train_labels["old_building"] = (train_labels["constructed"]<1950)
+        train_labels["cold_war_building"] = (train_labels["constructed"]>1955) & (train_labels["constructed"]<2000)
+        train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>200) & (train_labels["constructed"]<2018)
+        train_labels["bathroom_area"] = (train_labels["bathrooms_private"] + train_labels["bathrooms_shared"])/train_labels["area_total"]
+
 
     return train_labels, test_labels, added_features
 
