@@ -1337,7 +1337,7 @@ def KNN_groupKFold(number_of_splits, model, X_train, y_train):
         i += 1
     return scores, np.average(scores), best_model, best_index
 
-def plot_feature_importance(importance,names,model_type):
+def plot_feature_importance(importance,names,model_type, figsize=(10,20)):
     
     #Create arrays from feature importance and feature names
     feature_importance = np.array(importance)
@@ -1351,7 +1351,7 @@ def plot_feature_importance(importance,names,model_type):
     fi_df.sort_values(by=['feature_importance'], ascending=False,inplace=True)
     
     #Define size of bar plot
-    plt.figure(figsize=(10,20))
+    plt.figure(figsize=figsize)
     #Plot Searborn bar chart
     sns.barplot(x=fi_df['feature_importance'], y=fi_df['feature_names'])
     #Add chart labels
