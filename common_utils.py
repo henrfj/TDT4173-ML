@@ -596,17 +596,17 @@ def csv_bagging(kaggle_scores, csv_paths, submission_path):
     
     submission.to_csv(submission_path, index=False)
 
-def tree_bagging(bags, submission_path, weight=4):
-    submission = bag(bags, weight)['data']
+def tree_bagging(bags, submission_path, weight=[4]):
+    submission = bag(bags, 0, weight)['data']
     submission.to_csv(submission_path, index=False)
 
-def bag(bags, weight = 4):
+def bag(bags, i, weight = [4]):
     if type(bags) != list:
         return bags
     else:
         new_bags = []
         for b in bags:
-            new_bags.append(bag(b))
+            new_bags.append(bag(b, i+1 if i < len(weight)-1 else i, weight))
 
     if 'data' not in new_bags[0].keys():
         for b in new_bags:
@@ -616,11 +616,11 @@ def bag(bags, weight = 4):
     for b in new_bags:
         np_predictions.append(b['data']["price_prediction"].to_numpy().T)
 
-    score = np.average([bag['score'] for bag in new_bags], weights = [1 / bag['score'] ** weight for bag in new_bags])
+    score = np.average([bag['score'] for bag in new_bags], weights = [1 / bag['score'] ** weight[i] for bag in new_bags])
     # Bagging
     result = np.average(
         np_predictions,
-        weights = [1 / bag['score'] ** weight for bag in new_bags],
+        weights = [1 / bag['score'] ** weight[i] for bag in new_bags],
         axis=0
         )
     
