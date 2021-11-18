@@ -767,7 +767,7 @@ def get_oof_gradientboost(clf, x_train, y_train, x_test, NFOLDS=5):
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), scores
 
-def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
+def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5, strict_restart=False):
     """
     Popular function on Kaggle. Adapted for ANN.
     
@@ -787,33 +787,41 @@ def get_oof_ann(model_params, x_train, y_train, x_test, NFOLDS=5):
     
     i=0
     hists = []
-
+    
     for train_index, test_index in gkf.split(x_train, y_train, groups):
-        x_tr, x_te = x_train.iloc[train_index], x_train.iloc[test_index]
-        y_tr, y_te = y_train.iloc[train_index], y_train.iloc[test_index]
-        
-        x_tr = x_tr.drop(["building_id"], axis=1)
-        x_te = x_te.drop(["building_id"], axis=1)
-        x_test_no_id = x_test.drop(["building_id"], axis=1)
+        not_good_enough=True
+        while not_good_enough:
+            x_tr, x_te = x_train.iloc[train_index], x_train.iloc[test_index]
+            y_tr, y_te = y_train.iloc[train_index], y_train.iloc[test_index]
+            
+            x_tr = x_tr.drop(["building_id"], axis=1)
+            x_te = x_te.drop(["building_id"], axis=1)
+            x_test_no_id = x_test.drop(["building_id"], axis=1)
 
-        # Model
-        ann_model = create_ANN_model(*model_params)
+            # Model
+            ann_model = create_ANN_model(*model_params)
 
-        # Fit
-        hist = ann_model.fit(x=x_tr, y=y_tr,
-              validation_data=(x_te, y_te),
-              verbose=0, epochs=1000,
-              callbacks=[early_stop, PrintDot()]
-              )
-        
-        sample_pred = ann_model.predict(x_te)
-        all_pred = ann_model.predict(x_test_no_id)
+            # Fit
+            history = ann_model.fit(x=x_tr, y=y_tr,
+                validation_data=(x_te, y_te),
+                verbose=0, epochs=1000,
+                callbacks=[early_stop, PrintDot()]
+                )
 
-        oof_train[test_index] = sample_pred.reshape(sample_pred.shape[0],)
-        oof_test_skf[i, :] = all_pred.reshape(all_pred.shape[0],)
+            if strict_restart and (history.history["val_loss"][-1]>0.4):
+                print("Strict restart!")
+                continue
+            else:
+                not_good_enough=False
 
-        i+=1
-        hists.append(hist)
+            sample_pred = ann_model.predict(x_te)
+            all_pred = ann_model.predict(x_test_no_id)
+
+            oof_train[test_index] = sample_pred.reshape(sample_pred.shape[0],)
+            oof_test_skf[i, :] = all_pred.reshape(all_pred.shape[0],)
+
+            i+=1
+            hists.append(history)
 
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1), hists
@@ -1016,7 +1024,7 @@ def XGB_groupKFold(number_of_splits, model_params, X_train, y_train,
         models.append(model)
     return scores, np.average(scores), best_model, models
 
-def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):  
+def ANN_groupKFold(number_of_splits, model_params, X_train, y_train, strict_restart=False):  
     ''' y_train needs not to be log: as we got the RMSLE loss function for ANN!'''
     X_train = X_train.copy()
     y_train = y_train.copy()
@@ -1029,31 +1037,39 @@ def ANN_groupKFold(number_of_splits, model_params, X_train, y_train):
     hists=[]
     models=[]
     for train_index, test_index in gkf.split(X_train, y_train, groups):
-        X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
-        y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
-        
-        # We don't need it anymore.
-        X_train2 = X_train2.drop(["building_id"], axis=1)
-        X_test = X_test.drop(["building_id"], axis=1)
-        
-        model = create_ANN_model(*model_params)
-        early_stop = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
+        not_good_enough=True
+        while not_good_enough:
+            X_train2, X_test = X_train.iloc[train_index], X_train.iloc[test_index]
+            y_train2, y_test = y_train.iloc[train_index], y_train.iloc[test_index]
+            
+            # We don't need it anymore.
+            X_train2 = X_train2.drop(["building_id"], axis=1)
+            X_test = X_test.drop(["building_id"], axis=1)
+            
+            model = create_ANN_model(*model_params)
+            early_stop = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, mode='min', patience=40)
 
-        history = model.fit(x=X_train2, y=y_train2.values,
-          validation_data=(X_test, y_test),
-          verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
-          )
+            history = model.fit(x=X_train2, y=y_train2.values,
+            validation_data=(X_test, y_test),
+            verbose=0, epochs=1000, callbacks=[early_stop, PrintDot()]
+            )
 
-        prediction = model.predict(X_test)
-        ann_score = history.history["val_loss"][-1]
-        ann_scores.append(ann_score)
-        hists.append(history)
-        models.append(model)
-        if ann_score <  best_score:
-            print("New best model!")
-            best_score = ann_score
-            best_model = model
-        i += 1
+            if strict_restart and (history.history["val_loss"][-1]>0.4):
+                print("strict restart!")
+                continue
+            else:
+                not_good_enough=False
+
+            ann_score = history.history["val_loss"][-1]
+            ann_scores.append(ann_score)
+            hists.append(history)
+            models.append(model)
+            if ann_score <  best_score:
+                print("New best model!")
+                best_score = ann_score
+                best_model = model
+            i += 1
+            
     return ann_scores, models, best_model, hists
 
 def lgbm_groupKFold(number_of_splits, model, X_train, y_train,
@@ -1654,9 +1670,6 @@ def feature_engineering(train_labels, test_labels,
         test_labels["floor_inverse"] = test_labels["stories"]-test_labels["floor"]
         test_labels["floor_inverse"]=test_labels["floor_inverse"].where(test_labels["floor_inverse"]>=0, other=median_floor_inverse)
         added_features.append('floor_inverse')
-
-        
-
 
     if add_street_info:
         # Seafront = набережная.
