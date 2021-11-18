@@ -1697,7 +1697,7 @@ def feature_engineering(train_labels, test_labels,
 
         train_labels["area_floor"] = train_labels["area_total"] / train_labels["floor"]
         train_labels["area_stories"] = train_labels["area_total"] / train_labels["stories"]
-        #train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"]) # is just the invert of spacious rooms
+        train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"]) # is just the invert of spacious rooms
         train_labels["old_building"] = (train_labels["constructed"]<1950)
         train_labels["cold_war_building"] = (train_labels["constructed"]>1955) & (train_labels["constructed"]<2000)
         train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>200) & (train_labels["constructed"]<2018)
@@ -1706,7 +1706,7 @@ def feature_engineering(train_labels, test_labels,
 
         test_labels["area_floor"] = test_labels["area_total"] / test_labels["floor"]
         test_labels["area_stories"] = test_labels["area_total"] / test_labels["stories"]
-        #test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"]) # is just the invert of spacious rooms
+        test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"]) # is just the invert of spacious rooms
         test_labels["old_building"] = (test_labels["constructed"]<1950)
         test_labels["cold_war_building"] = (test_labels["constructed"]>1955) & (test_labels["constructed"]<2000)
         test_labels["modern_but_not_too_modern"] = (test_labels["constructed"]>200) & (test_labels["constructed"]<2018)
@@ -1833,27 +1833,45 @@ def feature_engineering(train_labels, test_labels,
             11:361.4
                 }
 
+        district_popularity_train_set = train_labels[['district','building_id']].groupby(['district']).count()
+        district_popularity_test_set = test_labels[['district','building_id']].groupby(['district']).count()
+        population_df = pd.DataFrame.from_dict(population,orient='index')
+        total = len(train_labels) + len(test_labels)
+        popularity_data_df = (district_popularity_train_set+district_popularity_test_set)/total
+        popularity_data = popularity_data_df.to_dict()['building_id']
+        popularity_population_df = pd.DataFrame.from_dict(popularity_data,orient='index')/population_df
+        popularity_population = popularity_population_df.to_dict()[0]
+
+
+
         density_district = [density[row['district']] for _,row in train_labels.iterrows()]
         population_district = [population[row['district']] for _,row in train_labels.iterrows()]
         area_district = [district_area[row['district']] for _,row in train_labels.iterrows()]
         outside_MKAD = [1 if (row["district"] in [9,10,11]) else 0 for _,row in train_labels.iterrows()]
+        popularity_district_data = [popularity_data[row['district']] for _,row in train_labels.iterrows()]
+        popularity_district_population = [popularity_population[row['district']] for _,row in train_labels.iterrows()]
 
         train_labels["density_district"] = density_district
         train_labels["population_district"] = population_district
         train_labels["area_district"] = area_district
-        train_labels["outside_MKAD"] = outside_MKAD
-        train_labels["density_district_log"] = np.log(train_labels['density_district'])
+        train_labels["outside_MKAD"] = outside_MKAD        
+        train_labels["popularity_district_data"] = popularity_district_data
+        train_labels["popularity_district_population"] = popularity_district_population
+
 
         density_district_test = [density[row['district']] for _,row in test_labels.iterrows()]
         population_district_test = [population[row['district']] for _,row in test_labels.iterrows()]
         area_district_test = [district_area[row['district']] for _,row in test_labels.iterrows()]
         outside_MKAD_test = [1 if (row["district"] in [9,10,11]) else 0 for _,row in test_labels.iterrows()]
+        popularity_district_data_test = [popularity_data[row['district']] for _,row in test_labels.iterrows()]
+        popularity_district_population_test = [popularity_population[row['district']] for _,row in test_labels.iterrows()]
 
         test_labels["density_district"] = density_district_test
         test_labels["population_district"] = population_district_test
         test_labels["area_district"] = area_district_test
         test_labels["outside_MKAD"] = outside_MKAD_test
-        test_labels["density_district_log"] = np.log(test_labels['density_district'])
+        test_labels["popularity_district_data"] = popularity_district_data_test
+        test_labels["popularity_district_population"] = popularity_district_population_test
 
 
     return train_labels, test_labels, added_features
