@@ -1403,9 +1403,7 @@ def clean_data(train, test,
                  features, float_numerical_features, int_numerical_features, cat_features,
                  log_targets=True, log_area=True, fillNan=True, log1_area=False, log1_targets=False):
     '''Clean the data according to best knowledge so far...
-        TODO - Outlier removal from train
-        TODO - fix the straight lines in area plots.
-    
+   
     '''
 
 
@@ -1761,8 +1759,8 @@ def feature_engineering(train_labels, test_labels,
             living_district.append(row['area_living']/average_area_living_district[row['district']])
             kitchen_district.append(row['area_kitchen']/average_area_kitchen_district[row['district']])
             total_floor.append(row['area_total']/average_area_total_floor[row['floor']])
-            total_constructed.append(row['area_total']/average_area_total_constructed[row['constructed']])
-
+            total_constructed.append(row['area_total']/average_area_total_constructed[row['constructed']] if (pd.notnull(row['area_total']) and pd.notnull(row['constructed'])) else None)
+        
         total_district_test = []
         living_district_test = []
         kitchen_district_test = []
@@ -1775,7 +1773,7 @@ def feature_engineering(train_labels, test_labels,
             living_district_test.append(row['area_living']/average_area_living_district[row['district']])
             kitchen_district_test.append(row['area_kitchen']/average_area_kitchen_district[row['district']])
             total_floor_test.append(row['area_total']/average_area_total_floor[row['floor']])
-            total_constructed_test.append(row['area_total']/average_area_total_constructed[row['constructed']])
+            total_constructed_test.append(row['area_total']/average_area_total_constructed[row['constructed']] if (pd.notnull(row['area_total']) and pd.notnull(row['constructed'])) else None)
 
         train_labels['average_area_total_district'] = total_district
         train_labels['average_area_living_district'] = living_district
