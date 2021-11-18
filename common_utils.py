@@ -1480,18 +1480,34 @@ def clean_data(train, test,
 
     # Fillnans of the two lat/log.
     # Insert median district
-    unknown_index = test_labels[["district", "latitude", "longitude"]][test_labels["latitude"].isna()==True].index
-    test_labels.loc[unknown_index,['district']] = test_labels["district"].median()
-    # Mean the long/lat
-    test_labels["longitude"] = test_labels["longitude"].fillna(test_labels["longitude"].mean())
-    test_labels["latitude"] = test_labels["latitude"].fillna(test_labels["latitude"].mean())
+    #unknown_index = test_labels[["district", "latitude", "longitude"]][test_labels["latitude"].isna()==True].index
+    #test_labels.loc[unknown_index,['district']] = test_labels["district"].median()
+    ## Mean the long/lat
+    #test_labels["longitude"] = test_labels["longitude"].fillna(test_labels["longitude"].mean())
+    #test_labels["latitude"] = test_labels["latitude"].fillna(test_labels["latitude"].mean())
 
-    # Fix houses on the north pole
+    # Both nans in test-data is in same known street.
+    # (37.470959, 55.570540)
+    is_na = (test_labels["longitude"].isna())
+    nas = test_labels.copy()[is_na]
+    test_labels.loc[nas.index,['longitude']] = 37.470959
+    test_labels.loc[nas.index,['latitude']] = 55.570540
+    
+
+    # Fix houses on the "north pole".
     is_outlier = (test_labels["longitude"] > 39) | (test_labels["longitude"] < 35)
     outliers = test_labels.copy()[is_outlier]
-    north_pole_index = outliers.index
-    test_labels.loc[north_pole_index,['longitude']] = train_labels["longitude"].mean()
-    test_labels.loc[north_pole_index,['latitude']] = train_labels["latitude"].mean()
+    for index in outliers.index:
+        if test_labels.loc[index,['street']][0]=="Бунинские Луга ЖК":
+            test_labels.loc[index,['longitude']] = 37.482297
+            test_labels.loc[index,['latitude']] = 55.543673
+        elif test_labels.loc[index,['street']][0]=="улица Центральная":
+            test_labels.loc[index,['longitude']] = 37.640383
+            test_labels.loc[index,['latitude']] = 55.566131
+        else:
+            test_labels.loc[index,['longitude']] = train_labels["longitude"].mean()
+            test_labels.loc[index,['latitude']] = train_labels["latitude"].mean()
+            test_labels.loc[index,['street']] = "Ленинский проспект"
 
     
     # Fill districts using long/lat
