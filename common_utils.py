@@ -1714,7 +1714,7 @@ def feature_engineering(train_labels, test_labels,
         train_labels["area_rooms"] = train_labels["area_total"] / np.average(train_labels["rooms"]) # is just the invert of spacious rooms
         train_labels["old_building"] = (train_labels["constructed"]<1950)
         train_labels["cold_war_building"] = (train_labels["constructed"]>1955) & (train_labels["constructed"]<2000)
-        train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>200) & (train_labels["constructed"]<2018)
+        train_labels["modern_but_not_too_modern"] = (train_labels["constructed"]>2000) & (train_labels["constructed"]<2018)
         train_labels["bathroom_area"] = (train_labels["bathrooms_private"] + train_labels["bathrooms_shared"])/train_labels["area_total"]
         train_labels['bathrooms_per_room'] = (train_labels["total_bathrooms"])/train_labels["rooms"]
 
@@ -1723,7 +1723,7 @@ def feature_engineering(train_labels, test_labels,
         test_labels["area_rooms"] = test_labels["area_total"] / np.average(test_labels["rooms"]) # is just the invert of spacious rooms
         test_labels["old_building"] = (test_labels["constructed"]<1950)
         test_labels["cold_war_building"] = (test_labels["constructed"]>1955) & (test_labels["constructed"]<2000)
-        test_labels["modern_but_not_too_modern"] = (test_labels["constructed"]>200) & (test_labels["constructed"]<2018)
+        test_labels["modern_but_not_too_modern"] = (test_labels["constructed"]>2000) & (test_labels["constructed"]<2018)
         test_labels["bathroom_area"] = (test_labels["bathrooms_private"] + test_labels["bathrooms_shared"])/test_labels["area_total"]
         test_labels['bathrooms_per_room'] = (test_labels["total_bathrooms"])/test_labels["rooms"]
 
